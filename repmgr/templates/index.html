@@ -1,15 +1,9 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Replication Manager</title>
-</head>
-<body>
-  <h1>Servers Configured</h1>
+{% extends "base.html" %}
+{% block content %}
+  <h1 class="page-header">Servers</h1>
   <ul>
   {% for server in servers %}
   <li>{{ server.hostname }}:{{ server.port }}</li>
   {% endfor %}
   </ul>
-</body>
-</html>
+{% endblock %}
