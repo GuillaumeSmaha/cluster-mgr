@@ -19,9 +19,13 @@ class UrlsTestCase(unittest.TestCase):
         os.close(self.db_fd)
         os.unlink(repmgr.app.config['DATABASE'])
 
-    def test_homepage(self):
+    def test_01_homepage(self):
         resp = self.app.get('/')
-        assert '<h1>' in resp.data
+        self.assertIn('h1', resp.data)
+
+    def test_02_add_server_page(self):
+        page = self.app.get('/add_server/')
+        self.assertIn('<h1 class="page-header">Add Server</h1>', page.data)
 
 
 if __name__ == '__main__':
