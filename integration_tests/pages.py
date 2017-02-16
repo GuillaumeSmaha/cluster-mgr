@@ -18,7 +18,7 @@ class Dashboard(BasePage):
         """
         table = self.driver.find_element_by_id('servers')
         for row in table.find_elements_by_xpath(".//tr"):
-            if hostname in row.text and server_id in row.text:
+            if hostname in row.text and str(server_id) in row.text:
                 return True
         return False
 

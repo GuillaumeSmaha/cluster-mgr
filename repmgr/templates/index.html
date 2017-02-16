@@ -1,9 +1,30 @@
 {% extends "base.html" %}
 {% block content %}
   <h1 class="page-header">Servers</h1>
-  <ul>
-  {% for server in servers %}
-  <li>{{ server.hostname }}:{{ server.port }}</li>
-  {% endfor %}
-  </ul>
+  <table id="servers" class="table table-bordered">
+    <thead>
+      <tr>
+        <th>#ID</th>
+        <th>Hostname</th>
+        <th>Port</th>
+        <th>Role</th>
+        <th>StartTLS</th>
+        <th>Server ID</th>
+        <th>Replication ID</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for server in servers %}
+      <tr>
+        <td>{{ server.id }}</td>
+        <td>{{ server.hostname }}</td>
+        <td>{{ server.port }}</td>
+        <td>{{ server.role }}</td>
+        <td>{% if server.starttls %}<i class="glyphicon glyphicon-ok-sign text-success"></i>{% else %}<i class="glyphicon glyphicon-remove-sign text-danger"></i>{% endif %}</td>
+        <td>{{ server.server_id }}</td>
+        <td>{{ server.replication_id }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
 {% endblock %}

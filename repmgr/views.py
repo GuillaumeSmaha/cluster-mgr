@@ -15,7 +15,8 @@ def home():
 def add_server():
     form = NewServerForm()
     if form.validate_on_submit():
-        server = LDAPServer(form.host.data, form.port.data, form.starttls.data,
+        server = LDAPServer(form.host.data, form.port.data, form.role.data,
+                            form.starttls.data,
                             form.server_id.data, form.replication_id.data)
         db.session.add(server)
         db.session.commit()
