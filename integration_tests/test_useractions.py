@@ -2,7 +2,7 @@ import unittest
 
 from selenium import webdriver
 
-from pages import AddServerPage
+from pages import AddServerPage, Dashboard
 from config import url
 
 
@@ -16,7 +16,7 @@ class AddServerTestCase(unittest.TestCase):
     def tearDownClass(cls):
         cls.browser.quit()
 
-    def test_add_new_master(self):
+    def test_01_add_new_master(self):
         page_url = url + '/add_server/'
         # User opens the Add server Page
         self.browser.get(page_url)
@@ -24,8 +24,10 @@ class AddServerTestCase(unittest.TestCase):
         asp = AddServerPage(self.browser)
         asp.add_master('provider.example.com', '1389', True, 100)
         # User is redirected to the dashboard with a success message
-        self.assertEquals(self.browser.current_url, url)
+        dash = Dashboard(self.browser)
 
+        # User see thes added server listed in the homepage
+        self.assertTrue(dash.is_server_listed('provider.example.com', 100))
 
 
 if __name__ == '__main__':

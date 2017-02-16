@@ -10,10 +10,17 @@ class BasePage(object):
         self.driver = driver
 
 
-class DashBoardPage(BasePage):
+class Dashboard(BasePage):
     """The Dashboard page that is visible once the app is loaded
     """
-    pass
+    def is_server_listed(self, hostname, server_id):
+        """Checks if the server with the given id is listed in the dashboard
+        """
+        table = self.driver.find_element_by_id('servers')
+        for row in table.find_elements_by_xpath(".//tr"):
+            if hostname in row.text and server_id in row.text:
+                return True
+        return False
 
 
 class AddServerPage(BasePage):
