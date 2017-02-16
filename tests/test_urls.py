@@ -27,14 +27,7 @@ class UrlsTestCase(unittest.TestCase):
 
     def test_02_add_server_page(self):
         page = self.app.get('/add_server/')
-        self.assertIn('<h1 class="page-header">Add Server</h1>', page.data)
-
-        server_count = LDAPServer.query.count()
-        self.app.post('/add_server/', data=dict(hostname='test.hostname.com',
-                      port=1389, starttls=True, role='master', server_id=100,
-                      replication_id=111), follow_redirects=True)
-        self.assertEqual(server_count+1, LDAPServer.query.count())
-
+        self.assertIn('<h1 class="page-header">New Server</h1>', page.data)
 
 if __name__ == '__main__':
     unittest.main()
