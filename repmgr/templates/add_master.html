@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block  content %}
+<h1 class="page-header">New Master Server</h1>
+<form action="/add_master/" method="POST" class="form-horizontal">
+  {{ form.csrf_token }}
+  <div class="form-group">
+    <label for="{{ form.hostname.id }}" class="col-sm-2 control-label">{{ form.hostname.label }}</label>
+    <div class="col-sm-6">
+      {{ form.hostname(class="form-control", placeholder="server.example.com")}}
+    </div>
+  </div>
+  <div class="form-group">
+    <label class="col-sm-2 control-label" for="{{ form.port.id }}">{{ form.port.label }}</label>
+    <div class="col-sm-6">
+      {{ form.port(class="form-control", placeholder="1389") }}
+    </div>
+  </div>
+  <div class="form-group">
+    <label for="{{ form.server_id.id }}" class="col-sm-2 control-label">{{ form.server_id.label }}</label>
+    <div class="col-sm-6">
+      {{ form.server_id(class="form-control") }}
+    </div>
+  </div>
+  <div class="form-group">
+    <label for="{{ form.replication_id.id }}" class="col-sm-2 control-label">{{ form.replication_id.label }}</label>
+    <div class="col-sm-6">
+      {{ form.replication_id(class="form-control") }}
+    </div>
+  </div>
+  <div class="form-group">
+    <div class="col-sm-offset-2 col-sm-5">
+      {{ form.starttls }} {{ form.starttls.label }}
+    </div>
+  </div>
+  <div class="form-group">
+    <label for="{{ form.manager_dn.id }}" class="col-sm-2 control-label">{{ form.manager_dn.label }}</label>
+    <div class="col-sm-6">
+      {{ form.manager_dn(class="form-control") }}
+    </div>
+  </div>
+  <div class="form-group">
+    <label for="{{ form.manager_pw.id }}" class="col-sm-2 control-label">{{ form.manager_pw.label }}</label>
+    <div class="col-sm-6">
+      {{ form.manager_pw(class="form-control") }}
+    </div>
+  </div>
+  <div class="form-group">
+    <div class="col-sm-offset-2 col-sm-10">
+      <button type="submit" class="btn btn-primary">Add Master</button>
+    </div>
+  </div>
+</form>
+{% endblock %}
