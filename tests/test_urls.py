@@ -3,8 +3,6 @@ import unittest
 import tempfile
 
 import repmgr
-from repmgr.application import db
-from repmgr.models import LDAPServer
 
 
 class UrlsTestCase(unittest.TestCase):
@@ -25,9 +23,9 @@ class UrlsTestCase(unittest.TestCase):
         resp = self.app.get('/')
         self.assertIn('h1', resp.data)
 
-    def test_02_add_server_page(self):
-        page = self.app.get('/add_server/')
-        self.assertIn('<h1 class="page-header">New Server</h1>', page.data)
+    def test_02_add_master_server(self):
+        page = self.app.get('/add_master/')
+        self.assertIn('<h2 class="page-header">New Master Server</h2>', page.data)
 
 if __name__ == '__main__':
     unittest.main()
