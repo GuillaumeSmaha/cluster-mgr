@@ -9,8 +9,6 @@ class LDAPServer(db.Model):
     starttls = db.Column(db.Boolean)
     server_id = db.Column(db.Integer)
     replication_id = db.Column(db.Integer)
-    manager_dn = db.Column(db.String(200))
-    manager_pw = db.Column(db.String(200))
 
     def __init__(self, hostname, port, role, starttls, s_id,
                  r_id, manager_dn, manager_pw):
@@ -20,8 +18,18 @@ class LDAPServer(db.Model):
         self.starttls = starttls
         self.server_id = s_id
         self.replication_id = r_id
-        self.manager_dn = manager_dn
-        self.manager_pw = manager_pw
 
     def __repr__(self):
         return '<Server %s:%d>' % (self.hostname, self.port)
+
+
+class AppConfiguration(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    replication_dn = db.Column(db.String(200))
+    replication_pw = db.Column(db.String(200))
+    certificate_folder = db.Column(db.String(200))
+
+    def __init__(self, replication_dn, replication_pw, cert_folder):
+        self.replication_dn = replication_dn
+        self.replication_pw = replication_pw
+        self.certificate_folder = cert_folder

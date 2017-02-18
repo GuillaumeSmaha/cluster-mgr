@@ -19,5 +19,5 @@ class NewMasterForm(FlaskForm):
     starttls = BooleanField('StartTLS', default=False)
     server_id = IntegerField('Server ID')
     replication_id = IntegerField('Replication ID')
-    manager_dn = StringField('Replication Manager DN')
-    manager_pw = PasswordField('Replication Manager Password')
+    manager_dn = StringField('Root Manager DN')
+    manager_pw = PasswordField('Root Manager Password')

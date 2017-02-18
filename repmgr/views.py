@@ -1,9 +1,9 @@
 import ldap
 
-from flask import render_template, redirect, url_for, flash
+from flask import render_template, redirect, url_for, flash, request
 
 from .application import app, db
-from .models import LDAPServer
+from .models import LDAPServer, AppConfiguration
 from .forms import NewMasterForm
 
 
@@ -48,3 +48,24 @@ def add_master():
               (form.hostname.data, form.server_id.data), "success")
         return redirect(url_for('home'))
     return render_template("add_master.html", form=form)
+
+
+@app.route('/configuration/', methods=['GET', 'POST'])
+def app_configuration():
+    config = AppConfiguration.query.filter(AppConfiguration.id == 1).first()
+    if request.method == 'POST':
+        print request.form
+        if config:
+            config.replication_dn = request.form.get('replication_dn')
+            config.replication_pw = request.form.get('replication_pw')
+            config.certificate_folder = request.form.get('cert_folder')
+        else:
+            config = AppConfiguration(request.form.get('replication_dn'),
+                                      request.form.get('replication_pw'),
+                                      request.form.get('cert_folder'))
+            db.session.add(config)
+        db.session.commit()
+        flash("Gluu Replicaiton Manager application configuration has been "
+              "updated.", "success")
+
+    return render_template('app_config.html', config=config)
