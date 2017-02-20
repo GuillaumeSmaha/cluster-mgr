@@ -1,10 +1,13 @@
 import ldap
+import random
+import os
 
-from flask import render_template, redirect, url_for, flash, request
+from flask import render_template, redirect, url_for, flash, request, \
+        send_from_directory, Response
 
 from .application import app, db
 from .models import LDAPServer, AppConfiguration
-from .forms import NewMasterForm
+from .forms import NewMasterForm, NewProviderForm
 
 
 @app.route('/')
@@ -15,14 +18,15 @@ def home():
 
 @app.route('/add_master/', methods=['GET', 'POST'])
 def add_master():
+    config = AppConfiguration.query.filter(AppConfiguration.id == 1).first()
     form = NewMasterForm()
     if form.validate_on_submit():
         # ensure the connection to the server
         url = "ldap://{}:{}".format(form.hostname.data, form.port.data)
         # TODO remove the following line once SSL Certs location is built
         ldap.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_NEVER)
-        con = ldap.initialize(url)
         try:
+            con = ldap.initialize(url)
             if form.starttls.data:
                 con.start_tls_s()
             con.bind_s(form.manager_dn.data, form.manager_pw.data)
@@ -44,6 +48,21 @@ def add_master():
                             form.manager_pw.data)
         db.session.add(server)
         db.session.commit()
+        # TODO
+        # Update the server with the following records
+        # 1. replication user
+        # 2. OLC config for the provider of delta-syncrepl
+        rep_user = [
+                ('objectclass', ['person']),
+                ('cn', ['replicator']),
+                ('userpassword', [config.replication_pw])
+                ]
+        con = ldap.initialize(url)
+        if form.starttls.data:
+            con.start_tls_s()
+        con.bind_s(form.manager_dn.data, form.manager_pw.data)
+        con.add_s(config.replication_dn, rep_user)
+
         flash("Sucessfully added %s, master server with ID: %d." %
               (form.hostname.data, form.server_id.data), "success")
         return redirect(url_for('home'))
@@ -69,3 +88,37 @@ def app_configuration():
               "updated.", "success")
 
     return render_template('app_config.html', config=config)
+
+
+@app.route('/new_provider/', methods=['GET', 'POST'])
+def new_provider():
+    form = NewProviderForm()
+    if form.validate_on_submit():
+        host = form.hostname.data
+        port = form.port.data
+        starttls = form.starttls.data
+        admin_pw = form.admin_pw.data
+        cacert = form.tls_cacert.data
+        servercert = form.tls_servercert.data
+        serverkey = form.tls_serverkey.data
+        s_id = random.randint(0, 999)
+        r_id = random.randint(2000, 3000)
+
+        server = LDAPServer(host, port, admin_pw, 'provider', starttls, s_id,
+                            r_id, cacert, servercert, serverkey)
+        db.session.add(server)
+        db.session.commit()
+
+        conf = ''
+        confile = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                               "templates", "provider.conf")
+        with open(confile, 'r') as c:
+            conf = c.read()
+        conf_values = {"TLSCACert": cacert, "TLSServerCert": servercert,
+                       "TLSServerKey": serverkey, "admin_pw": admin_pw}
+        conf = conf.format(**conf_values)
+        return Response(conf, mimetype="text/plain",
+                        headers={"Content-disposition":
+                                 "attachment; filename=slapd.conf"})
+
+    return render_template('new_provider.html', form=form)

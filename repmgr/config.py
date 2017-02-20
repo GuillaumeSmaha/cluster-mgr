@@ -4,6 +4,7 @@ class Config(object):
     SQLALCHEMY_DATABASE_URI = 'sqlite://:memory:'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SECRET_KEY = 'prettysecret'
+    BASE_DN = 'dc=example,dc=com'
 
 
 class ProductionConfig(Config):

@@ -21,3 +21,13 @@ class NewMasterForm(FlaskForm):
     replication_id = IntegerField('Replication ID')
     manager_dn = StringField('Root Manager DN')
     manager_pw = PasswordField('Root Manager Password')
+
+
+class NewProviderForm(FlaskForm):
+    hostname = StringField('Hostname', validators=[DataRequired()])
+    port = IntegerField('Port', validators=[DataRequired()])
+    starttls = BooleanField('Use StartTLS for communication', default=False)
+    admin_pw = StringField('LDAP Admin Password', validators=[DataRequired()])
+    tls_cacert = StringField('TLS CA Certificate')
+    tls_servercert = StringField('TLS Server Certificate')
+    tls_serverkey = StringField('TLS Server Cert Key')
