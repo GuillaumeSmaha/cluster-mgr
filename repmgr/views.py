@@ -7,13 +7,18 @@ from flask import render_template, redirect, url_for, flash, request, \
 
 from .application import app, db
 from .models import LDAPServer, AppConfiguration
-from .forms import NewMasterForm, NewProviderForm
+from .forms import NewMasterForm, NewProviderForm, NewConsumerForm
 
 
 @app.route('/')
 def home():
     servers = LDAPServer.query.all()
     return render_template('index.html', servers=servers)
+
+
+@app.route('/error/<error>/')
+def error_page(error=None):
+    return render_template('error.html', error=error)
 
 
 @app.route('/add_master/', methods=['GET', 'POST'])
@@ -71,7 +76,7 @@ def add_master():
 
 @app.route('/configuration/', methods=['GET', 'POST'])
 def app_configuration():
-    config = AppConfiguration.query.filter(AppConfiguration.id == 1).first()
+    config = AppConfiguration.query.get(1)
     if request.method == 'POST':
         print request.form
         if config:
@@ -96,16 +101,18 @@ def new_provider():
     if form.validate_on_submit():
         host = form.hostname.data
         port = form.port.data
+        role = 'provider'
         starttls = form.starttls.data
-        admin_pw = form.admin_pw.data
+        s_id = random.randint(0, 499)
+        r_id = random.randint(500, 999)
         cacert = form.tls_cacert.data
         servercert = form.tls_servercert.data
         serverkey = form.tls_serverkey.data
-        s_id = random.randint(0, 999)
-        r_id = random.randint(2000, 3000)
+        admin_pw = form.admin_pw.data
+        rep_pw = form.replication_pw.data
 
-        server = LDAPServer(host, port, admin_pw, 'provider', starttls, s_id,
-                            r_id, cacert, servercert, serverkey)
+        server = LDAPServer(host, port, admin_pw, rep_pw, role, starttls,
+                            s_id, r_id, cacert, servercert, serverkey)
         db.session.add(server)
         db.session.commit()
 
@@ -122,3 +129,48 @@ def new_provider():
                                  "attachment; filename=slapd.conf"})
 
     return render_template('new_provider.html', form=form)
+
+
+@app.route('/new_consumer/', methods=['GET', 'POST'])
+def new_consumer():
+    form = NewConsumerForm()
+    form.provider.choices = [(p.id, p.hostname)
+                             for p in LDAPServer.query.filter_by(
+                                 role='provider').all()]
+    if len(form.provider.choices) == 0:
+        return redirect(url_for('error_page', error='no-provider'))
+
+    if form.validate_on_submit():
+        host = form.hostname.data
+        port = form.port.data
+        role = "consumer"
+        starttls = form.starttls.data
+        s_id = random.randint(0, 499)
+        r_id = random.randint(500, 999)
+        cacert = form.tls_cacert.data
+        servercert = form.tls_servercert.data
+        serverkey = form.tls_serverkey.data
+        provider_id = form.provider.data
+        admin_pw = form.admin_pw.data
+
+        server = LDAPServer(host, port, admin_pw, '', role, starttls,
+                            s_id, r_id, cacert, servercert, serverkey)
+        db.session.add(server)
+        db.session.commit()
+
+        provider = LDAPServer.query.get(provider_id)
+        conf = ''
+        confile = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                               "templates", "consumer.conf")
+        with open(confile, 'r') as c:
+            conf = c.read()
+        conf_values = {"TLSCACert": cacert, "TLSServerCert": servercert,
+                       "TLSServerKey": serverkey, "admin_pw": admin_pw,
+                       "r_id": r_id, "phost": provider.hostname,
+                       "pport": provider.port, "r_pw": provider.replication_pw}
+        conf = conf.format(**conf_values)
+        return Response(conf, mimetype="text/plain",
+                        headers={"Content-disposition":
+                                 "attachment; filename=slapd.conf"})
+
+    return render_template('new_consumer.html', form=form)

@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block  content %}
+<div class="jumbotron">
+  <h1>Oops! Something's wrong.</h1>
+  {% if error == 'no-provider' %}
+  <p class="text-danger"><strong>Provider needed before setting up Consumer!</strong></p>
+  <p> There is no provider configured in the manager. Kindly configure the provider before setting up a consumer. </p>
+    <p><a class="btn btn-primary btn-lg" href="{{ url_for('new_provider') }}" role="button">Configure Provider</a></p>
+  {% endif %}
+</div>
+{% endblock %}

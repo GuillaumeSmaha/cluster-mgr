@@ -14,13 +14,15 @@ class LDAPServer(db.Model):
     tls_serverkey = db.Column(db.Text)
     initialized = db.Column(db.Boolean)
     admin_pw = db.Column(db.String(150))
+    replication_pw = db.Column(db.String(150))
 
-    def __init__(self, hostname, port, pw, role, starttls, s_id,
+    def __init__(self, hostname, port, admin_pw, rep_pw, role, starttls, s_id,
                  r_id, cacert=None, servercert=None, serverkey=None):
         self.hostname = hostname
         self.port = port
         self.role = role
-        self.admin_pw = pw
+        self.admin_pw = admin_pw
+        self.replication_pw = rep_pw
         self.starttls = starttls
         self.server_id = s_id
         self.replication_id = r_id
