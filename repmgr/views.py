@@ -174,3 +174,66 @@ def new_consumer():
                                  "attachment; filename=slapd.conf"})
 
     return render_template('new_consumer.html', form=form)
+
+
+@app.route('/initialize/<int:server_id>/')
+def initialize(server_id):
+    """Initialize function establishes starttls connection, authenticates
+    and adds the replicator account to the o=gluu suffix."""
+    server = LDAPServer.query.get(server_id)
+    if not server:
+        return redirect(url_for('error', error='invalid-id-for-init'))
+    if server.role != 'provider':
+        flash("Intialization is required only for provider. %s is not a "
+              "provider. Nothing done." % server.hostname, "warning")
+        return redirect(url_for('home'))
+
+    # TODO change the set_option line with
+    # ldap.set_option(ldap.OPT_X_TLS_CACERTDIR, '/path/to/cacerts')
+    ldap.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_NEVER)
+    replication_user = [
+            ('objectclass', ['person']),
+            ('cn', ['replicator']),
+            ('sn', ['gluu']),
+            ('userpassword', [str(server.replication_pw)])
+            ]
+    dn = 'cn=replicator,o=gluu'
+
+    try:
+        con = ldap.initialize('ldap://'+server.hostname)
+        con.start_tls_s()
+        con.bind_s('cn=directory manager,o=gluu', server.admin_pw)
+        con.add_s(dn, replication_user)
+        flash("Replication user added to the LDAP server.", "success")
+    except ldap.INVALID_CREDENTIALS:
+        flash("Couldn't initialize server. Wrong admin credentials.", "danger")
+    except ldap.LDAPError as e:
+        if type(e.message) == dict and 'desc' in e.message:
+            flash("Couldn't add cn=replicator user. %s" % e.message['desc'],
+                  "danger")
+        else:
+            flash("Couldn't add cn=replicator user. %s" % e, "danger")
+    finally:
+        con.unbind()
+
+    try:
+        con = ldap.initialize('ldap://'+server.hostname)
+        con.start_tls_s()
+        con.bind_s('cn=replicator,o=gluu', server.replication_pw)
+        flash("Authentication successful for replicator. Consumers can be "
+              " setup for the provider: %s" % server.hostname, "success")
+    except ldap.INVALID_CREDENTIALS:
+        flash("Couldn't authenticate as replicator. Replication will fail."
+              "Kindly try again after sometime.", "danger")
+    except ldap.LDAPError as e:
+        if type(e.message) == dict and 'desc' in e.message:
+            flash("Couldn't authenticate as replicator.%s" % e.message['desc'],
+                  "danger")
+        else:
+            flash("Couldn't authenticate as replicator. %s" % e, "danger")
+    finally:
+        con.unbind()
+    server.initialized = True
+    db.session.add(server)
+    db.session.commit()
+    return redirect(url_for('home'))
