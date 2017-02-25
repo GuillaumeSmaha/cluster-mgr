@@ -1,13 +1,16 @@
 import ldap
 import random
 import os
+import redis
 
 from flask import render_template, redirect, url_for, flash, request, \
-        send_from_directory, Response
+        Response, jsonify
+from celery.result import AsyncResult
 
-from .application import app, db
+from .application import app, db, celery
 from .models import LDAPServer, AppConfiguration
-from .forms import NewMasterForm, NewProviderForm, NewConsumerForm
+from .forms import NewProviderForm, NewConsumerForm
+from .tasks import initialize_provider
 
 
 @app.route('/')
@@ -19,59 +22,6 @@ def home():
 @app.route('/error/<error>/')
 def error_page(error=None):
     return render_template('error.html', error=error)
-
-
-@app.route('/add_master/', methods=['GET', 'POST'])
-def add_master():
-    config = AppConfiguration.query.filter(AppConfiguration.id == 1).first()
-    form = NewMasterForm()
-    if form.validate_on_submit():
-        # ensure the connection to the server
-        url = "ldap://{}:{}".format(form.hostname.data, form.port.data)
-        # TODO remove the following line once SSL Certs location is built
-        ldap.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_NEVER)
-        try:
-            con = ldap.initialize(url)
-            if form.starttls.data:
-                con.start_tls_s()
-            con.bind_s(form.manager_dn.data, form.manager_pw.data)
-            con.unbind()
-        except ldap.INVALID_CREDENTIALS:
-            flash("Cannot add server. Wrong credentials entered.", "danger")
-            return render_template("add_master.html", form=form)
-        except ldap.LDAPError as e:
-            if type(e.message) == dict and 'desc' in e.message:
-                flash("Cannot add server. %s" % e.message['desc'], "danger")
-            else:
-                flash("Cannot add server. %s" % e, "danger")
-            return render_template("add_master.html", form=form)
-
-        # Binding sucess - Store the information in the DB
-        server = LDAPServer(form.hostname.data, form.port.data, 'master',
-                            form.starttls.data, form.server_id.data,
-                            form.replication_id.data, form.manager_dn.data,
-                            form.manager_pw.data)
-        db.session.add(server)
-        db.session.commit()
-        # TODO
-        # Update the server with the following records
-        # 1. replication user
-        # 2. OLC config for the provider of delta-syncrepl
-        rep_user = [
-                ('objectclass', ['person']),
-                ('cn', ['replicator']),
-                ('userpassword', [config.replication_pw])
-                ]
-        con = ldap.initialize(url)
-        if form.starttls.data:
-            con.start_tls_s()
-        con.bind_s(form.manager_dn.data, form.manager_pw.data)
-        con.add_s(config.replication_dn, rep_user)
-
-        flash("Sucessfully added %s, master server with ID: %d." %
-              (form.hostname.data, form.server_id.data), "success")
-        return redirect(url_for('home'))
-    return render_template("add_master.html", form=form)
 
 
 @app.route('/configuration/', methods=['GET', 'POST'])
@@ -188,52 +138,19 @@ def initialize(server_id):
               "provider. Nothing done." % server.hostname, "warning")
         return redirect(url_for('home'))
 
-    # TODO change the set_option line with
-    # ldap.set_option(ldap.OPT_X_TLS_CACERTDIR, '/path/to/cacerts')
-    ldap.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_NEVER)
-    replication_user = [
-            ('objectclass', ['person']),
-            ('cn', ['replicator']),
-            ('sn', ['gluu']),
-            ('userpassword', [str(server.replication_pw)])
-            ]
-    dn = 'cn=replicator,o=gluu'
+    task = initialize_provider.delay(server_id)
+    return render_template('initialize.html', server=server, task=task)
 
-    try:
-        con = ldap.initialize('ldap://'+server.hostname)
-        con.start_tls_s()
-        con.bind_s('cn=directory manager,o=gluu', server.admin_pw)
-        con.add_s(dn, replication_user)
-        flash("Replication user added to the LDAP server.", "success")
-    except ldap.INVALID_CREDENTIALS:
-        flash("Couldn't initialize server. Wrong admin credentials.", "danger")
-    except ldap.LDAPError as e:
-        if type(e.message) == dict and 'desc' in e.message:
-            flash("Couldn't add cn=replicator user. %s" % e.message['desc'],
-                  "danger")
-        else:
-            flash("Couldn't add cn=replicator user. %s" % e, "danger")
-    finally:
-        con.unbind()
 
-    try:
-        con = ldap.initialize('ldap://'+server.hostname)
-        con.start_tls_s()
-        con.bind_s('cn=replicator,o=gluu', server.replication_pw)
-        flash("Authentication successful for replicator. Consumers can be "
-              " setup for the provider: %s" % server.hostname, "success")
-    except ldap.INVALID_CREDENTIALS:
-        flash("Couldn't authenticate as replicator. Replication will fail."
-              "Kindly try again after sometime.", "danger")
-    except ldap.LDAPError as e:
-        if type(e.message) == dict and 'desc' in e.message:
-            flash("Couldn't authenticate as replicator.%s" % e.message['desc'],
-                  "danger")
-        else:
-            flash("Couldn't authenticate as replicator. %s" % e, "danger")
-    finally:
-        con.unbind()
-    server.initialized = True
-    db.session.add(server)
-    db.session.commit()
-    return redirect(url_for('home'))
+@app.route('/task/<task_id>')
+def task_status(task_id):
+    r = redis.Redis(host='localhost', port=6379, db=0)
+    s1 = r.get('task:{}:conn'.format(task_id))
+    s2 = r.get('task:{}:add'.format(task_id))
+    s3 = r.get('task:{}:recon'.format(task_id))
+    result = AsyncResult(id=task_id, app=celery)
+    if result.state == 'SUCCESSFUL':
+        r.delete('task:{}:conn'.format(task_id))
+        r.delete('task:{}:add'.format(task_id))
+        r.delete('task:{}:recon'.format(task_id))
+    return jsonify({'conn': s1, 'add': s2, 'recon': s3})

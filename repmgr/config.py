@@ -4,7 +4,9 @@ class Config(object):
     SQLALCHEMY_DATABASE_URI = 'sqlite://:memory:'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SECRET_KEY = 'prettysecret'
-    BASE_DN = 'dc=example,dc=com'
+    BASE_DN = 'o=gluu'
+    CELERY_BROKER_URL = 'redis://localhost:6379'
+    CELERY_RESULT_BACKEND = 'redis://localhost:6379'
 
 
 class ProductionConfig(Config):
