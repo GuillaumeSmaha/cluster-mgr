@@ -145,12 +145,18 @@ def initialize(server_id):
 @app.route('/task/<task_id>')
 def task_status(task_id):
     r = redis.Redis(host='localhost', port=6379, db=0)
-    s1 = r.get('task:{}:conn'.format(task_id))
-    s2 = r.get('task:{}:add'.format(task_id))
-    s3 = r.get('task:{}:recon'.format(task_id))
+    steps = ['conn', 'add', 'recon']
+    data = {}
+    for step in steps:
+        key = 'task:{0}:{1}'.format(task_id, step)
+        data[step] = dict([('status', r.get(key)),
+                          ('error', r.get(key+':error'))])
+
     result = AsyncResult(id=task_id, app=celery)
     if result.state == 'SUCCESSFUL':
-        r.delete('task:{}:conn'.format(task_id))
-        r.delete('task:{}:add'.format(task_id))
-        r.delete('task:{}:recon'.format(task_id))
-    return jsonify({'conn': s1, 'add': s2, 'recon': s3})
+        for step in steps:
+            key = 'task:{0}:{1}'.format(task_id, step)
+            print "deleting the key", key
+            r.delete(key)
+            r.delete(key+':error')
+    return jsonify(data)

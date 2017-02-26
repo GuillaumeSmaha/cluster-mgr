@@ -2,29 +2,38 @@
 {% block  content %}
 <h2>Initializing server  {{ server.hostname }}</h2>
 <div class="progress">
-  <div class="progress-bar progress-bar-success progress-bar-striped" role="progressbar" aria-valuenow="40" aria-valuemin="0" aria-valuemax="100" style="width: 40%">
-    <span class="sr-only"></span>
+  <div  id="progress" class="progress-bar progress-bar-success progress-bar-striped" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
   </div>
 </div>
-<ul class="list-group">
-  <li id="conn" class="list-group-item">
-    Connecting to the server {{ server.hotname }}:{{ server.port }} ...
+
+<div id="conn" class="panel panel-default">
+  <div class="panel-heading">
+    Connecting to the server {{ server.hostname }}:{{ server.port }} ...
     <span class="pull-right text-success" style="display: none"><i class="glyphicon glyphicon-ok"></i></span>
     <span class="pull-right text-danger" style="display: none"><i class="glyphicon glyphicon-remove"></i></span>
-  </li>
-  <li id="add" class="list-group-item">
+  </div>
+  <div class="panel-body"></div>
+</div>
+
+<div id="add" class="panel panel-default">
+    <div class="panel-heading">
     Adding the replicaiton user to the server ...
     <span class="pull-right text-success" style="display: none"><i class="glyphicon glyphicon-ok"></i></span>
     <span class="pull-right text-danger" style="display: none"><i class="glyphicon glyphicon-remove"></i></span>
-  </li>
-  </li>
-  <li id="recon" class="list-group-item">
+    </div>
+    <div class="panel-body"></div>
+</div>
+
+<div id="recon" class="panel panel-default">
+    <div class="panel-heading">
     Reconnecting and verifying authentication as the replication user ...
     <span class="pull-right text-success" style="display: none"><i class="glyphicon glyphicon-ok"></i></span>
     <span class="pull-right text-danger" style="display: none"><i class="glyphicon glyphicon-remove"></i></span>
-  </li>
-  </li>
-</ul>
+    </div>
+    <div class="panel-body"></div>
+</div>
+
+<a href="/" id="goback" class="btn btn-primary" style="display: none">Go back Home</a>
 
 <script>
 var task_id = "{{ task.id }}";
@@ -34,12 +43,27 @@ function updateLog(){
         var steps = ['conn', 'add', 'recon'];
         for(var i=0; i<steps.length; i++){
             var k = steps[i];
-            if(data[k] == 'success'){
-                $('#'+k+' > span.text-success').show();
-            } else if (data[k] == 'failed'){
-                $('#'+k+' > span.text-danger').show();
+            if(data[k].status == 'success'){
+                $('#'+k+' > .panel-heading > span.text-success').show();
+                $('#'+k).removeClass('panel-default').addClass('panel-success');
+                $('#'+k+' > .panel-body').text("SUCCESS");
+                switch(k){
+                    case 'conn': $('#progress').css("width", "33%");
+                                 break;
+                    case 'add': $('#progress').css("width", "66%");
+                                break;
+                    case 'recon': $('#progress').css("width", "100%");
+                                  break;
+                }
+            } else if (data[k].status == 'failed'){
+                $('#'+k+' > .panel-heading > span.text-danger').show();
+                $('#'+k+' > .panel-body').text(data[k].error);
+                $('#'+k).removeClass('panel-default').addClass('panel-danger');
             }
-            if(data.recon == 'failed' || data.recon == 'success'){clearInterval(tid);}
+            if(data.recon.status == 'failed' || data.recon.status == 'success'){
+                clearInterval(tid);
+                $('#goback').show('slow');
+            }
         }
     });
 }

@@ -5,8 +5,18 @@ from .application import celery, db
 from .models import LDAPServer
 
 
+def log_error_to_redis(r, tid, step, e):
+    key = 'task:{0}:{1}'.format(tid, step)
+    r.set(key, 'failed')
+    if type(e.message) == dict and 'desc' in e.message:
+        r.set(key+':error', e.message['desc'])
+    else:
+        r.set(key+':error', "%s" % e)
+
+
 @celery.task(bind=True)
 def initialize_provider(self, server_id):
+    initialized = False
     server = LDAPServer.query.get(server_id)
     ldap.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_NEVER)
     r = redis.Redis(host='localhost', port=6379, db=0)
@@ -18,57 +28,37 @@ def initialize_provider(self, server_id):
             ('userpassword', [str(server.replication_pw)])
             ]
 
+    # Step 1: Connection
     con = ldap.initialize('ldap://'+server.hostname)
     try:
         con.start_tls_s()
         con.bind_s('cn=directory manager,o=gluu', server.admin_pw)
-        #flash("Replication user added to the LDAP server.", "success")
         r.set('task:{}:conn'.format(self.request.id), 'success')
     except ldap.LDAPError as e:
-        if type(e.message) == dict and 'desc' in e.message:
-            #flash("Couldn't add cn=replicator user. %s" % e.message['desc'],
-            #      "danger")
-            r.set('task:{}:conn'.format(self.request.id), 'failed')
-        else:
-            #flash("Couldn't add cn=replicator user. %s" % e, "danger")
-            r.set('task:{}:conn'.format(self.request.id), 'failed')
+        log_error_to_redis(r, self.request.id, 'conn', e)
 
+    # Step 2: Add replication user
     try:
         con.add_s(dn, replication_user)
         r.set('task:{}:add'.format(self.request.id), 'success')
     except ldap.LDAPError as e:
-        r.set('task:{}:add'.format(self.request.id), 'failed')
+        log_error_to_redis(r, self.request.id, 'add', e)
     finally:
         con.unbind()
 
+    # Step 3: Reconnect as replication user
     try:
         con = ldap.initialize('ldap://'+server.hostname)
         con.start_tls_s()
         con.bind_s('cn=replicator,o=gluu', server.replication_pw)
-        #flash("Authentication successful for replicator. Consumers can be "
-        #      " setup for the provider: %s" % server.hostname, "success")
         r.set('task:{}:recon'.format(self.request.id), 'success')
-    except ldap.INVALID_CREDENTIALS:
-        r.set('task:{}:recon'.format(self.request.id), 'failed')
-        #flash("Couldn't authenticate as replicator. Replication will fail."
-        #      "Kindly try again after sometime.", "danger")
+        initialized = True
     except ldap.LDAPError as e:
-        if type(e.message) == dict and 'desc' in e.message:
-            #flash("Couldn't authenticate as replicator.%s" % e.message['desc'],
-            #      "danger")
-            r.set('task:{}:recon'.format(self.request.id), 'failed')
-        else:
-            r.set('task:{}:recon'.format(self.request.id), 'failed')
-            #flash("Couldn't authenticate as replicator. %s" % e, "danger")
+        log_error_to_redis(r, self.request.id, 'recon', e)
     finally:
         con.unbind()
 
-    if r.get('task:{}:recon'.format(self.request.id)) == 'success':
+    if initialized:
         server.initialized = True
         db.session.add(server)
         db.session.commit()
-
-
-@celery.task()
-def add(x, y):
-    return x+y

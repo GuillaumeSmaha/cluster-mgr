@@ -25,10 +25,10 @@
         <td>{{ server.server_id }}</td>
         <td>{{ server.replication_id }}</td>
         <td>
-            <a class="btn btn-success btn-xs" href="{{ url_for('initialize', server_id=server.id) }}">Initialize</a>
             {% if server.role == "provider" and not server.initialized %}
-            {% else %}
-                NA
+                <a class="btn btn-success btn-xs" href="{{ url_for('initialize', server_id=server.id) }}">Initialize</a>
+            {% elif server.role == "provider" and server.initialized %}
+                <a class="btn btn-success btn-xs" href="{{ url_for('initialize', server_id=server.id) }}">Test Connection</a>
             {% endif %}
 
         </td>
