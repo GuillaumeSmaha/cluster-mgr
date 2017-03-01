@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
+  {% if servers|length %}
   <h1 class="page-header">Servers</h1>
   <table id="servers" class="table table-bordered">
     <thead>
@@ -36,4 +37,14 @@
       {% endfor %}
     </tbody>
   </table>
+  <h2>Test Replication</h2>
+  <a class="btn btn-info" href="{{ url_for('test_replication') }}">Start Test</a>
+  {% else %}
+    <div class="jumbotron">
+        <h1>Let's begin</h1>
+        <p>Hi, this is a GUI to manage OpenLDAP server replication using <strong>delta-syncrepl</strong>.
+        The setup consists of <strong>Providers</strong> and <strong>Consumers</strong>. Start by setting up a provider first.</p>
+        <p><a class="btn btn-primary btn-lg" href="{{ url_for('new_provider') }}" role="button">Setup Provider</a></p>
+    </div>
+  {% endif %}
 {% endblock %}

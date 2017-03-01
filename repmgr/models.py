@@ -1,7 +1,10 @@
 from .application import db
 
+from sqlalchemy.orm import relationship, backref
+
 
 class LDAPServer(db.Model):
+    __tablename__ = "ldap_server"
     id = db.Column(db.Integer, primary_key=True)
     hostname = db.Column(db.String(150))
     port = db.Column(db.Integer)
@@ -15,9 +18,13 @@ class LDAPServer(db.Model):
     initialized = db.Column(db.Boolean)
     admin_pw = db.Column(db.String(150))
     replication_pw = db.Column(db.String(150))
+    provider_id = db.Column(db.Integer, db.ForeignKey('ldap_server.id'))
+    consumers = relationship("LDAPServer", backref=backref(
+        'provider', remote_side=[id]))
 
     def __init__(self, hostname, port, admin_pw, rep_pw, role, starttls, s_id,
-                 r_id, cacert=None, servercert=None, serverkey=None):
+                 r_id, provider=None, cacert=None, servercert=None,
+                 serverkey=None):
         self.hostname = hostname
         self.port = port
         self.role = role
@@ -30,6 +37,7 @@ class LDAPServer(db.Model):
         self.tls_servercert = servercert
         self.tls_serverkey = serverkey
         self.initialized = False
+        self.provider_id = provider
 
     def __repr__(self):
         return '<Server %s:%d>' % (self.hostname, self.port)

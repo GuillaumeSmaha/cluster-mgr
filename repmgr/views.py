@@ -1,7 +1,7 @@
-import ldap
 import random
 import os
 import redis
+import json
 
 from flask import render_template, redirect, url_for, flash, request, \
         Response, jsonify
@@ -10,7 +10,7 @@ from celery.result import AsyncResult
 from .application import app, db, celery
 from .models import LDAPServer, AppConfiguration
 from .forms import NewProviderForm, NewConsumerForm
-from .tasks import initialize_provider
+from .tasks import initialize_provider, replicate
 
 
 @app.route('/')
@@ -60,9 +60,11 @@ def new_provider():
         serverkey = form.tls_serverkey.data
         admin_pw = form.admin_pw.data
         rep_pw = form.replication_pw.data
+        provider = None
 
         server = LDAPServer(host, port, admin_pw, rep_pw, role, starttls,
-                            s_id, r_id, cacert, servercert, serverkey)
+                            s_id, r_id, provider, cacert, servercert,
+                            serverkey)
         db.session.add(server)
         db.session.commit()
 
@@ -104,7 +106,8 @@ def new_consumer():
         admin_pw = form.admin_pw.data
 
         server = LDAPServer(host, port, admin_pw, '', role, starttls,
-                            s_id, r_id, cacert, servercert, serverkey)
+                            s_id, r_id, provider_id, cacert, servercert,
+                            serverkey)
         db.session.add(server)
         db.session.commit()
 
@@ -153,10 +156,26 @@ def task_status(task_id):
                           ('error', r.get(key+':error'))])
 
     result = AsyncResult(id=task_id, app=celery)
-    if result.state == 'SUCCESSFUL':
+    if result.state == 'SUCCESS':
         for step in steps:
             key = 'task:{0}:{1}'.format(task_id, step)
-            print "deleting the key", key
             r.delete(key)
             r.delete(key+':error')
     return jsonify(data)
+
+
+@app.route('/fulltest/run')
+def test_replication():
+    task = replicate.delay()
+    return render_template('reptest.html', task=task)
+
+
+@app.route('/fulltest/<task_id>/status')
+def test_status(task_id):
+    r = redis.Redis(host='localhost', port=6379, db=0)
+    key = 'test:{}'.format(task_id)
+    data = r.lrange(key, 0, -1)
+    result = AsyncResult(id=task_id, app=celery)
+    if result.state == 'SUCCESS':
+        r.delete(key)
+    return jsonify([json.loads(d) for d in data])
