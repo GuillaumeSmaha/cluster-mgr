@@ -3,6 +3,8 @@ import redis
 import json
 import time
 
+from fabric.api import run, execute, cd, put
+
 from .application import celery, db
 from .models import LDAPServer
 
@@ -195,3 +197,23 @@ def replicate(self):
                 con.unbind()
 
     log_rep_message(r, key, 'Test Complete.')
+
+
+def generate_slapd(conffile):
+    put(conffile, '/opt/symas/etc/openldap/slapd.conf')
+    status = run('service solserver status')
+    if 'is running' in status:
+        run('service solserver stop')
+    with cd('/opt/symas/etc/openldap/'):
+        run('rm -rf slapd.d')
+        run('mkdir slapd.d')
+        run('/opt/symas/bin/slaptest -f slapd.conf -F slapd.d')
+    run('service solserver start')
+
+
+@celery.task(bind=True)
+def setup_provider(self, server_id, conffile):
+    server = LDAPServer.query.get(server_id)
+    host = "root@{}".format(server.hostname)
+    report = execute(generate_slapd, conffile, hosts=[host])
+    return report
