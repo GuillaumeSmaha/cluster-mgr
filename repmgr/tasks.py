@@ -111,7 +111,7 @@ def replicate(self):
         except ldap.LDAPError as e:
             log_rep_message(
                 r, key, 'Adding test data to the provider: {}'.format(
-                    provider.hostname), 'FAILED', "".format(e))
+                    provider.hostname), 'FAILED', "{}".format(e))
             continue
 
         consumers = provider.consumers
@@ -136,7 +136,7 @@ def replicate(self):
                 log_rep_message(r, key,
                                 'Connecting to the consumer: {}'.format(
                                     consumer.hostname), 'FAILED',
-                                "".format(e))
+                                "{}".format(e))
                 continue
 
             log_rep_message(r, key, 'Searching for the test data', 'NOSTATUS')
@@ -166,7 +166,7 @@ def replicate(self):
             log_rep_message(r, key, 'Deleting test entry from the provider')
         except ldap.LDAPError as e:
             log_rep_message(r, key, 'Deleting test entry from provider',
-                            'FAILED', e)
+                            'FAILED', "{}".format(e))
         finally:
             procon.unbind()
 
