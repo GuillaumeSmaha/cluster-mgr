@@ -10,7 +10,7 @@ from celery.result import AsyncResult
 from .application import app, db, celery
 from .models import LDAPServer, AppConfiguration
 from .forms import NewProviderForm, NewConsumerForm
-from .tasks import initialize_provider, replicate
+from .tasks import initialize_provider, replicate, setup_server
 
 
 @app.route('/')
@@ -76,9 +76,7 @@ def new_provider():
         conf_values = {"TLSCACert": cacert, "TLSServerCert": servercert,
                        "TLSServerKey": serverkey, "admin_pw": admin_pw}
         conf = conf.format(**conf_values)
-        return Response(conf, mimetype="text/plain",
-                        headers={"Content-disposition":
-                                 "attachment; filename=slapd.conf"})
+        return render_template("editor.html", config=conf, server=server)
 
     return render_template('new_provider.html', form=form)
 
@@ -122,9 +120,7 @@ def new_consumer():
                        "r_id": r_id, "phost": provider.hostname,
                        "pport": provider.port, "r_pw": provider.replication_pw}
         conf = conf.format(**conf_values)
-        return Response(conf, mimetype="text/plain",
-                        headers={"Content-disposition":
-                                 "attachment; filename=slapd.conf"})
+        return render_template("editor.html", config=conf)
 
     return render_template('new_consumer.html', form=form)
 
@@ -179,3 +175,34 @@ def test_status(task_id):
     if result.state == 'SUCCESS':
         r.delete(key)
     return jsonify([json.loads(d) for d in data])
+
+
+@app.route('/editor/')
+def editor():
+    return render_template('editor.html')
+
+
+@app.route('/server/<int:server_id>/setup/', methods=['POST'])
+def configure_server(server_id):
+    filename = "{}_slapd.conf".format(server_id)
+    filepath = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                            'conffiles', filename)
+    conf = request.form.get('conf')
+    with open(filepath, 'w') as f:
+        f.write(conf)
+
+    task_id = setup_server.delay(server_id, filepath)
+    return jsonify({'url': url_for('setup_log',
+                    server_id=server_id, task_id=task_id)})
+
+
+@app.route('/server/<int:server_id>/setup/<task_id>')
+def setup_log(server_id, task_id):
+    r = redis.Redis(host='localhost', port=6379, db=0)
+    key = 'task:{}'.format(task_id)
+    result = AsyncResult(id=task_id, app=celery)
+    data = {'state': result.state, 'log': '\n'.join(r.lrange(key, 0, -1))}
+    if result.state == 'SUCCESS' or result.state == 'FAILURE':
+        r.delete(key)
+    return jsonify(data)
+

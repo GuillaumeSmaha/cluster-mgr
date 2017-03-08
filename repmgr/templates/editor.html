@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block content %}
+<div id="alert" class="alert alert-info" role="alert">
+    A slapd.conf file has been generated with the information you provided. Edit the config to suit any specific requirements.
+</div>
+<div class="panel panel-default" id="editor-panel">
+  <div class="panel-heading">slapd.conf</div>
+  <div class="panel-body" style="padding:0;">
+    <div id="editor" style="height: 500px;">{{ config }}</div>
+  </div>
+</div>
+
+<a id="submit" class="btn btn-primary" href="#">Setup LDAP Server</a>
+
+<div class="page-header" style="display: none;">
+    <h3 id="state">Setting up your server: <small>{{ server.hostname }}</small></h3>
+</div>
+<pre id="log" style="display:none;">
+</pre>
+<a id="gohome" class="btn btn-success btn-block" href="/" style="display:none;">Go to Dashboard</a>
+{% endblock content %}
+
+
+{% block js %}
+<script src="{{ url_for('static', filename='js/ace/ace.js') }}" type="text/javascript" charset="utf-8"></script>
+<script>
+    var editor = ace.edit("editor");
+    editor.setTheme("ace/theme/xcode");
+    editor.getSession().setMode("ace/mode/ini");
+
+    var server_id = {{ server.id }};
+    var log_url;
+    $('#submit').click(function(){
+        var conf = editor.getValue();
+        $.post('{{ url_for("configure_server", server_id=server.id) }}', {conf: conf}).done(
+                function(data){
+                    log_url = data.url;
+                    $('#editor-panel').hide();
+                    $('#submit').hide();
+                    $('#alert').hide();
+
+                    $('#log, .page-header').show();
+                    tid = setInterval(updateLog, 1000);
+                });
+    });
+
+    function updateLog(){
+        $.get(log_url, function(data){
+            $('#log').text(data.log);
+            if(data.state == 'SUCCESS' || data.state == 'FAILURE'){
+                clearInterval(tid);
+                $('#gohome').show();
+            }
+        });
+    }
+</script>
+
+{% endblock js %}

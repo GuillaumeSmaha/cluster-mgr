@@ -4,6 +4,7 @@ import json
 import time
 
 from fabric.api import run, execute, cd, put
+from fabric.context_managers import settings
 
 from .application import celery, db
 from .models import LDAPServer
@@ -199,21 +200,36 @@ def replicate(self):
     log_rep_message(r, key, 'Test Complete.')
 
 
-def generate_slapd(conffile):
-    put(conffile, '/opt/symas/etc/openldap/slapd.conf')
+def generate_slapd(key, conffile):
+    r = redis.Redis(host='localhost', port=6379, db=0)
+    r.rpush(key, "Copying slapd.conf file to remote server")
+    log = "> "+str(put(conffile, '/opt/symas/etc/openldap/slapd.conf'))
+    r.rpush(key, log)
     status = run('service solserver status')
+    r.rpush(key, "Checking Status of solserver\n> "+status)
     if 'is running' in status:
-        run('service solserver stop')
+        log = run('service solserver stop')
+        r.rpush(key, "{0}\n> {1}".format(log.command, log))
     with cd('/opt/symas/etc/openldap/'):
+        r.rpush(key, "Generating slad.d Online Configuration")
         run('rm -rf slapd.d')
         run('mkdir slapd.d')
-        run('/opt/symas/bin/slaptest -f slapd.conf -F slapd.d')
-    run('service solserver start')
+        log = run('/opt/symas/bin/slaptest -f slapd.conf -F slapd.d')
+        r.rpush(key, "{0}\n> {1}".format(log.command, log))
+    r.rpush(key, "Starting solrver")
+    log = run('service solserver start')
+    r.rpush(key, "{0}\n> {1}".format(log.real_command, log))
+    if 'failed' in log:
+        r.rpush(key, "Debugging slapd...")
+        log = run("/opt/symas/lib64/slapd -d 1 -f /opt/symas/etc/openldap/slapd.conf")
+        r.rpush(key, "{0}\n> {1}".format(log.real_command, log))
+
 
 
 @celery.task(bind=True)
-def setup_provider(self, server_id, conffile):
+def setup_server(self, server_id, conffile):
+    key = 'task:{}'.format(self.request.id)
     server = LDAPServer.query.get(server_id)
     host = "root@{}".format(server.hostname)
-    report = execute(generate_slapd, conffile, hosts=[host])
-    return report
+    with settings(warn_only=True):
+        execute(generate_slapd, key, conffile, hosts=[host])
