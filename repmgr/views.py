@@ -120,7 +120,7 @@ def new_consumer():
                        "r_id": r_id, "phost": provider.hostname,
                        "pport": provider.port, "r_pw": provider.replication_pw}
         conf = conf.format(**conf_values)
-        return render_template("editor.html", config=conf)
+        return render_template("editor.html", config=conf, server=server)
 
     return render_template('new_consumer.html', form=form)
 
