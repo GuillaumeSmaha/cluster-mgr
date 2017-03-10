@@ -3,8 +3,7 @@ import os
 import redis
 import json
 
-from flask import render_template, redirect, url_for, flash, request, \
-        Response, jsonify
+from flask import render_template, redirect, url_for, flash, request, jsonify
 from celery.result import AsyncResult
 
 from .application import app, db, celery
