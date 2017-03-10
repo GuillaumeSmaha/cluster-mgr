@@ -38,7 +38,7 @@ def app_configuration():
                                       request.form.get('cert_folder'))
             db.session.add(config)
         db.session.commit()
-        flash("Gluu Replicaiton Manager application configuration has been "
+        flash("Gluu Replication Manager application configuration has been "
               "updated.", "success")
 
     return render_template('app_config.html', config=config)
