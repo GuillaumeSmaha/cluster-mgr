@@ -216,7 +216,7 @@ def generate_slapd(key, conffile):
         run('mkdir slapd.d')
         log = run('/opt/symas/bin/slaptest -f slapd.conf -F slapd.d')
         r.rpush(key, "{0}\n> {1}".format(log.command, log))
-    r.rpush(key, "Starting solrver")
+    r.rpush(key, "Starting solserver")
     log = run('service solserver start')
     r.rpush(key, "{0}\n> {1}".format(log.real_command, log))
     if 'failed' in log:
