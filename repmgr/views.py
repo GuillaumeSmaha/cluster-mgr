@@ -28,7 +28,7 @@ def error_page(error=None):
 def app_configuration():
     config = AppConfiguration.query.get(1)
     if request.method == 'POST':
-        print request.form
+        app.logger.debug(request.form)
         if config:
             config.replication_dn = request.form.get('replication_dn')
             config.replication_pw = request.form.get('replication_pw')
@@ -205,4 +205,3 @@ def setup_log(server_id, task_id):
     if result.state == 'SUCCESS' or result.state == 'FAILURE':
         r.delete(key)
     return jsonify(data)
-
