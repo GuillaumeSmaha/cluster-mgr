@@ -1,6 +1,8 @@
 {% extends "base.html" %}
 {% block content %}
+
   {% if servers|length %}
+
   <h1 class="page-header">Servers</h1>
   <table id="servers" class="table table-bordered">
     <thead>
@@ -39,12 +41,53 @@
   </table>
   <h2>Test Replication</h2>
   <a class="btn btn-info" href="{{ url_for('test_replication') }}">Start Test</a>
+
   {% else %}
-    <div class="jumbotron">
-        <h1>Let's begin</h1>
-        <p>Hi, this is a GUI to manage OpenLDAP server replication using <strong>delta-syncrepl</strong>.
-        The setup consists of <strong>Providers</strong> and <strong>Consumers</strong>. Start by setting up a provider first.</p>
-        <p><a class="btn btn-primary btn-lg" href="{{ url_for('new_provider') }}" role="button">Setup Provider</a></p>
+
+  {# Introduction page starts here #}
+    <h1 class="page-header">Replication Manager</h1>
+    <p>Gluu Replication Manager lets an admin to create, test and maintain a server cluster using OpenLDAP replication. The currently supported topologies for clustering are:</p>
+    <ul>
+        <li>Delta-Syncrepl</li>
+        <li>Mirror Mode</li>
+    </ul>
+    <div class="row">
+        <div class="col-md-6 col-sm-12">
+            <div class="panel panel-info">
+                <div class="panel-heading">
+                    <h3 class="panel-title">Delta-Syncrepl</h3>
+                </div>
+                <div class="panel-body">
+                    <img class="center-block" src="{{ url_for('static', filename='images/Delta-Syncrepl.png')}}" alt="Delta Syncrepl Topology">
+                    <hr>
+                    <p>Key Features:</p>
+                    <ul>
+                        <li>1 Provider</li>
+                        <li>Multiple Consumers</li>
+                    </ul>
+                    <a class="btn btn-info btn-block" href="#">Setup</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 col-sm-12">
+            <div class="panel panel-warning">
+                <div class="panel-heading">
+                    <h3 class="panel-title">Mirror Mode</h3>
+                </div>
+                <div class="panel-body">
+                    <img src="{{ url_for('static', filename='images/MirrorMode.png')}}" alt="Delta Syncrepl Topology">
+                    <hr>
+                    <p>Key Features:</p>
+                    <ul>
+                        <li>2 Providers</li>
+                        <li>Multiple Consumers under each provider</li>
+                    </ul>
+                    <a class="btn btn-warning btn-block" href="#">Setup</a>
+                </div>
+            </div>
+        </div>
     </div>
+
+
   {% endif %}
 {% endblock %}
