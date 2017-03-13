@@ -1,6 +1,6 @@
 from flask_wtf import FlaskForm
 from wtforms import StringField, SelectField, BooleanField, IntegerField
-from wtforms.validators import DataRequired
+from wtforms.validators import DataRequired, Regexp
 
 
 class NewProviderForm(FlaskForm):
@@ -24,3 +24,13 @@ class NewConsumerForm(FlaskForm):
     tls_servercert = StringField('TLS Server Certificate')
     tls_serverkey = StringField('TLS Server Cert Key')
     provider = SelectField('Provider', coerce=int)
+
+
+class AppConfigForm(FlaskForm):
+    replication_dn = StringField('Replication Manager DN', validators=[
+        DataRequired(), Regexp(
+            '^[a-zA-Z][a-zA-Z ]*[a-zA-Z]$',
+            message="Only alphabets and space allowed; cannot end with space.")])
+    replication_pw = StringField('Replication Manager Password',
+                                 validators=[DataRequired()])
+    certificate_folder = StringField('Certificate Folder')

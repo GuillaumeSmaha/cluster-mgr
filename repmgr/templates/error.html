@@ -6,10 +6,17 @@
   <p class="text-danger"><strong>Provider needed before setting up Consumer!</strong></p>
   <p> There is no provider configured in the manager. Kindly configure the provider before setting up a consumer. </p>
     <p><a class="btn btn-primary btn-lg" href="{{ url_for('new_provider') }}" role="button">Configure Provider</a></p>
+
   {% elif error == "invalid-id-for-init" %}
   <p class="text-danger"><strong>Provider doesn't exist!</strong></p>
   <p>Sorry the provider with the given id doesn't seem to exist. Maybe try again from the dashboard.</p>
-    <p><a class="btn btn-primary btn-lg" href="/" role="button">Dashboard</a></p>
+    <p><a class="btn btn-primary btn-lg" href="/" role="button">Go Home</a></p>
+
+  {% elif error == "unknown-topology" %}
+  <p class="text-danger"><strong>Unknown Topology</strong></p>
+  <p>Replicaiton Manager currently supports only <strong>Delta-Syncrepl</strong> and <strong>Mirror Mode</strong> topologies only</p>
+    <p><a class="btn btn-primary btn-lg" href="/" role="button">Go Home</a></p>
+
   {% endif %}
 </div>
 {% endblock %}

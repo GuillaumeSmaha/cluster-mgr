@@ -44,12 +44,9 @@ class LDAPServer(db.Model):
 
 
 class AppConfiguration(db.Model):
+    __tablename__ = 'appconfig'
     id = db.Column(db.Integer, primary_key=True)
     replication_dn = db.Column(db.String(200))
     replication_pw = db.Column(db.String(200))
     certificate_folder = db.Column(db.String(200))
-
-    def __init__(self, replication_dn, replication_pw, cert_folder):
-        self.replication_dn = replication_dn
-        self.replication_pw = replication_pw
-        self.certificate_folder = cert_folder
+    topology = db.Column(db.String(30))

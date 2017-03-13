@@ -14,6 +14,9 @@
         {% if (field.type != 'HiddenField' and field.type !='CSRFTokenField') and label_visible %}
             <label for="{{ field.id }}" class="control-label">{{ field.label }}</label>
         {% endif %}
+        {% if 'help' in kwargs %}
+            <p class="help-block">{{ kwargs.pop('help') }}</p>
+        {% endif %}
         {{ field(class_='form-control', **kwargs) }}
         {% if field.errors %}
             {% for e in field.errors %}

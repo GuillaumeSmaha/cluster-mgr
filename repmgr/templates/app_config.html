@@ -1,21 +1,27 @@
 {% extends "base.html" %}
+{% from 'macros.html' import render_field %}
 {% block content %}
+<h2 class="page-header">App Configuration</h2>
 <form action="{{ url_for('app_configuration') }}" method="POST">
+    {{ form.csrf_token }}
 <div class="panel panel-default">
   <div class="panel-heading">
     <h3 class="panel-title">Replication</h3>
   </div>
   <div class="panel-body">
-    <div class="form-group">
-      <label for="replication_dn">Replication Manager DN</label>
-      <input id="replication_dn" type="text" name="replication_dn" class="form-control" placeholder="cn=replicator,o=gluu"
-             {% if config %} value="{{ config.replication_dn }}"{% endif %} >
+      <div class="form-group {{ 'has-error' if form.replication_dn.errors else '' }}">
+        {{ form.replication_dn.label(class="control-label") }}
+        <p class="help-block">This DN (e.g., cn=replicator,o=gluu) will be used by all consumers to authenticate with providers.</p>
+        <div class="input-group">
+            <span class="input-group-addon">cn=</span>
+            {{ form.replication_dn(class="form-control", placeholder="replicator") }}
+            <span class="input-group-addon">,o=gluu</span>
+        </div>
+      {% for error in form.replication_dn.errors %}
+        <p class="help-block">{{ error }}</p>
+      {% endfor %}
     </div>
-    <div class="form-group">
-      <label for="replication_pw">Replication Manager Password</label>
-      <input id="replication_pw" class="form-control" type="text" name="replication_pw"
-             {% if config %} value="{{ config.replication_pw }}"{% endif %} >
-    </div>
+    {{ render_field(form.replication_pw) }}
   </div>
 </div>
 
@@ -24,11 +30,7 @@
     <h3 class="panel-title">SSL/TLS</h3>
   </div>
   <div class="panel-body">
-    <div class="form-group">
-      <label for="cert_folder">Certificate Folder</label>
-      <input id="cert_folder" class="form-control" type="text" name="cert_folder" placeholder="/etc/certs"
-             {% if config %} value="{{ config.certificate_folder }}"{% endif %} >
-    </div>
+    {{ render_field(form.certificate_folder, placeholder="/etc/certs", help="Location of SSL certificates for Replication Manager to use.") }}
   </div>
 </div>
 

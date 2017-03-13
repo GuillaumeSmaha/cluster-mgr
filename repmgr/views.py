@@ -3,12 +3,13 @@ import os
 import redis
 import json
 
-from flask import render_template, redirect, url_for, flash, request, jsonify
+from flask import render_template, redirect, url_for, flash, request, jsonify, \
+        session
 from celery.result import AsyncResult
 
 from .application import app, db, celery
 from .models import LDAPServer, AppConfiguration
-from .forms import NewProviderForm, NewConsumerForm
+from .forms import NewProviderForm, NewConsumerForm, AppConfigForm
 from .tasks import initialize_provider, replicate, setup_server
 
 
@@ -25,28 +26,53 @@ def error_page(error=None):
 
 @app.route('/configuration/', methods=['GET', 'POST'])
 def app_configuration():
+    form = AppConfigForm()
     config = AppConfiguration.query.get(1)
-    if request.method == 'POST':
-        app.logger.debug(request.form)
-        if config:
-            config.replication_dn = request.form.get('replication_dn')
-            config.replication_pw = request.form.get('replication_pw')
-            config.certificate_folder = request.form.get('cert_folder')
-        else:
-            config = AppConfiguration(request.form.get('replication_dn'),
-                                      request.form.get('replication_pw'),
-                                      request.form.get('cert_folder'))
-            db.session.add(config)
+    if request.method == 'GET' and config:
+        form.replication_dn.data = config.replication_dn
+        form.replication_pw.data = config.replication_pw
+        form.certificate_folder.data = config.certificate_folder
+    if form.validate_on_submit():
+        if not config:
+            config = AppConfiguration()
+        config.replication_dn = form.replication_dn.data
+        config.replication_pw = form.replication_pw.data
+        config.certificate_folder = form.certificate_folder.data
+
+        db.session.add(config)
         db.session.commit()
         flash("Gluu Replication Manager application configuration has been "
               "updated.", "success")
+        if request.args.get('next'):
+            return redirect(request.args.get('next'))
 
-    return render_template('app_config.html', config=config)
+    return render_template('app_config.html', form=form, config=config)
+
+
+@app.route('/cluster/setup/<topology>/')
+def setup_cluster(topology):
+    session['topology'] = topology
+    config = AppConfiguration.query.get(1)
+    if not config:
+        config = AppConfiguration()
+        config.topology = topology
+        db.session.add(config)
+        db.session.commit()
+        flash("The application needs to be configured before cluster can be "
+              "created. Kindly configure the application now.", "info")
+        return redirect(url_for('app_configuration',
+                        next=url_for('setup_cluster', topology=topology)))
+    if topology == 'delta':
+        return redirect(url_for('new_provider'))
+    elif topology == 'mirrormode':
+        return redirect(url_for('new_provider'))
+    else:
+        return redirect(url_for('error_page', error='unknown-topology'))
 
 
 @app.route('/new_provider/', methods=['GET', 'POST'])
 def new_provider():
-    form = NewProviderForm()
+    form = NewProviderForm(request.form)
     if form.validate_on_submit():
         host = form.hostname.data
         port = form.port.data
@@ -82,7 +108,7 @@ def new_provider():
 
 @app.route('/new_consumer/', methods=['GET', 'POST'])
 def new_consumer():
-    form = NewConsumerForm()
+    form = NewConsumerForm(request.form)
     form.provider.choices = [(p.id, p.hostname)
                              for p in LDAPServer.query.filter_by(
                                  role='provider').all()]
