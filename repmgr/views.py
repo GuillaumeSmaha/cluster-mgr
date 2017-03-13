@@ -46,7 +46,7 @@ def app_configuration():
         if request.args.get('next'):
             return redirect(request.args.get('next'))
 
-    return render_template('app_config.html', form=form, config=config)
+    return render_template('app_config.html', form=form, config=config, next=request.args.get('next'))
 
 
 @app.route('/cluster/setup/<topology>/')
@@ -58,8 +58,8 @@ def setup_cluster(topology):
         config.topology = topology
         db.session.add(config)
         db.session.commit()
-        flash("The application needs to be configured before cluster can be "
-              "created. Kindly configure the application now.", "info")
+        flash("Replication Manager DN and Password needs to be set before "
+              "cluster can be created. Kindly configure now.", "info")
         return redirect(url_for('app_configuration',
                         next=url_for('setup_cluster', topology=topology)))
     if topology == 'delta':

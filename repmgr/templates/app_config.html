@@ -2,7 +2,7 @@
 {% from 'macros.html' import render_field %}
 {% block content %}
 <h2 class="page-header">App Configuration</h2>
-<form action="{{ url_for('app_configuration') }}" method="POST">
+<form action="{{ url_for('app_configuration', next=next) }}" method="POST">
     {{ form.csrf_token }}
 <div class="panel panel-default">
   <div class="panel-heading">
