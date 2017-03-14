@@ -1,9 +1,8 @@
-import random
 import os
 import redis
 import json
 
-from flask import render_template, redirect, url_for, flash, request, jsonify, \
+from flask import render_template, redirect, url_for, flash, request, jsonify,\
         session
 from celery.result import AsyncResult
 
@@ -46,10 +45,11 @@ def app_configuration():
         if request.args.get('next'):
             return redirect(request.args.get('next'))
 
-    return render_template('app_config.html', form=form, config=config, next=request.args.get('next'))
+    return render_template('app_config.html', form=form, config=config,
+                           next=request.args.get('next'))
 
 
-@app.route('/cluster/setup/<topology>/')
+@app.route('/cluster/<topology>/setup/')
 def setup_cluster(topology):
     session['topology'] = topology
     config = AppConfiguration.query.get(1)
@@ -58,11 +58,15 @@ def setup_cluster(topology):
         config.topology = topology
         db.session.add(config)
         db.session.commit()
+
+    if not config or not config.replication_dn or not config.replication_pw:
         flash("Replication Manager DN and Password needs to be set before "
-              "cluster can be created. Kindly configure now.", "info")
+              "cluster can be created. Kindly configure now.", "warning")
         return redirect(url_for('app_configuration',
                         next=url_for('setup_cluster', topology=topology)))
+
     if topology == 'delta':
+        flash('Configure a provider to begin managing the cluster.', 'info')
         return redirect(url_for('new_provider'))
     elif topology == 'mirrormode':
         return redirect(url_for('new_provider'))
@@ -78,18 +82,14 @@ def new_provider():
         port = form.port.data
         role = 'provider'
         starttls = form.starttls.data
-        s_id = random.randint(0, 499)
-        r_id = random.randint(500, 999)
         cacert = form.tls_cacert.data
         servercert = form.tls_servercert.data
         serverkey = form.tls_serverkey.data
         admin_pw = form.admin_pw.data
-        rep_pw = form.replication_pw.data
         provider = None
 
-        server = LDAPServer(host, port, admin_pw, rep_pw, role, starttls,
-                            s_id, r_id, provider, cacert, servercert,
-                            serverkey)
+        server = LDAPServer(host, port, admin_pw, role, starttls,
+                            provider, cacert, servercert, serverkey)
         db.session.add(server)
         db.session.commit()
 
@@ -120,30 +120,30 @@ def new_consumer():
         port = form.port.data
         role = "consumer"
         starttls = form.starttls.data
-        s_id = random.randint(0, 499)
-        r_id = random.randint(500, 999)
         cacert = form.tls_cacert.data
         servercert = form.tls_servercert.data
         serverkey = form.tls_serverkey.data
         provider_id = form.provider.data
         admin_pw = form.admin_pw.data
+        provider = LDAPServer.query.get(provider_id)
 
-        server = LDAPServer(host, port, admin_pw, '', role, starttls,
-                            s_id, r_id, provider_id, cacert, servercert,
-                            serverkey)
+        server = LDAPServer(host, port, admin_pw, role, starttls,
+                            provider_id, cacert, servercert, serverkey)
         db.session.add(server)
         db.session.commit()
 
-        provider = LDAPServer.query.get(provider_id)
         conf = ''
         confile = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                "templates", "consumer.conf")
         with open(confile, 'r') as c:
             conf = c.read()
+
+        appconfig = AppConfiguration.query.get(1)
         conf_values = {"TLSCACert": cacert, "TLSServerCert": servercert,
                        "TLSServerKey": serverkey, "admin_pw": admin_pw,
-                       "r_id": r_id, "phost": provider.hostname,
-                       "pport": provider.port, "r_pw": provider.replication_pw}
+                       "r_id": provider.id, "phost": provider.hostname,
+                       "pport": provider.port, "r_pw": appconfig.replication_pw
+                       }
         conf = conf.format(**conf_values)
         return render_template("editor.html", config=conf, server=server)
 
