@@ -24,6 +24,23 @@ class NewConsumerForm(FlaskForm):
     provider = SelectField('Provider', coerce=int)
 
 
+class NewMirrorModeForm(FlaskForm):
+    host1 = StringField('Hostname', validators=[DataRequired()])
+    host2 = StringField('Hostname', validators=[DataRequired()])
+    port1 = IntegerField('Port', validators=[DataRequired()])
+    port2 = IntegerField('Port', validators=[DataRequired()])
+    tls1 = BooleanField('Use StartTLS for communication', default=False)
+    tls2 = BooleanField('Use StartTLS for communication', default=False)
+    admin_pw1 = StringField('LDAP Admin Password', validators=[DataRequired()])
+    admin_pw2 = StringField('LDAP Admin Password', validators=[DataRequired()])
+    cacert1 = StringField('TLS CA Certificate')
+    cacert2 = StringField('TLS CA Certificate')
+    servercert1 = StringField('TLS Server Certificate')
+    servercert2 = StringField('TLS Server Certificate')
+    serverkey1 = StringField('TLS Server Cert Key')
+    serverkey2 = StringField('TLS Server Cert Key')
+
+
 class AppConfigForm(FlaskForm):
     replication_dn = StringField('Replication Manager DN', validators=[
         DataRequired(), Regexp(

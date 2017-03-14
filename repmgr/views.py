@@ -8,7 +8,8 @@ from celery.result import AsyncResult
 
 from .application import app, db, celery
 from .models import LDAPServer, AppConfiguration
-from .forms import NewProviderForm, NewConsumerForm, AppConfigForm
+from .forms import NewProviderForm, NewConsumerForm, AppConfigForm, \
+        NewMirrorModeForm
 from .tasks import initialize_provider, replicate, setup_server
 
 
@@ -49,7 +50,7 @@ def app_configuration():
                            next=request.args.get('next'))
 
 
-@app.route('/cluster/<topology>/setup/')
+@app.route('/cluster/<topology>/')
 def setup_cluster(topology):
     session['topology'] = topology
     config = AppConfiguration.query.get(1)
@@ -69,7 +70,7 @@ def setup_cluster(topology):
         flash('Configure a provider to begin managing the cluster.', 'info')
         return redirect(url_for('new_provider'))
     elif topology == 'mirrormode':
-        return redirect(url_for('new_provider'))
+        return redirect(url_for('new_mirrormode'))
     else:
         return redirect(url_for('error_page', error='unknown-topology'))
 
@@ -148,6 +149,15 @@ def new_consumer():
         return render_template("editor.html", config=conf, server=server)
 
     return render_template('new_consumer.html', form=form)
+
+
+@app.route('/new_mirrormode/')
+def new_mirrormode():
+    form = NewMirrorModeForm(request.form)
+    if form.validate_on_submit():
+        # TODO
+        pass
+    return render_template('new_mirror_providers.html', form=form)
 
 
 @app.route('/initialize/<int:server_id>/')
