@@ -12,11 +12,27 @@
 
 <a id="submit" class="btn btn-primary" href="#">Setup LDAP Server</a>
 
+{% if server %}
 <div class="page-header" style="display: none;">
-    <h3 id="state">Setting up your server: <small>{{ server.hostname }}</small></h3>
+    <h3>Setting up your server: <small>{{ server.hostname }}</small></h3>
 </div>
 <pre id="log" style="display:none;">
 </pre>
+
+{% elif servers %}
+<div class="row">
+    {% for server in servers %}
+    <div class="col-md-6 col-sm-12">
+        <div class="page-header" style="display: none;">
+            <h3>Setting up your server: <small>{{ server.hostname }}</small></h3>
+        </div>
+        <pre id="log{{ server.id }}" style="display:none;">
+        </pre>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
 <a id="gohome" class="btn btn-success btn-block" href="/" style="display:none;">Go to Dashboard</a>
 {% endblock content %}
 
@@ -27,9 +43,11 @@
     var editor = ace.edit("editor");
     editor.setTheme("ace/theme/xcode");
     editor.getSession().setMode("ace/mode/ini");
-
-    var server_id = {{ server.id }};
     var log_url;
+    var tid;
+
+    {% if server %}
+    var server_id = {{ server.id }};
     $('#submit').click(function(){
         var conf = editor.getValue();
         $.post('{{ url_for("configure_server", server_id=server.id) }}', {conf: conf}).done(
@@ -53,6 +71,44 @@
             }
         });
     }
-</script>
 
+    {% elif servers %}
+    var server_ids = [{% for server in servers %}{{server.id}},{% endfor %}];
+    var loggers = [];
+
+    $('#submit').click(function(){
+        var conf = editor.getValue();
+        var dummyurl = '{{ url_for("configure_server", server_id=0) }}';
+        $.each(server_ids, function(idx, server_id){
+            $.post(dummyurl.replace(0, server_id), {conf: conf}).done(
+                function(data){
+                    log_url = data.url;
+                    $('#editor-panel').hide();
+                    $('#submit').hide();
+                    $('#alert').hide();
+
+                    $('#log'+server_id+', .page-header').show();
+                    tid = setInterval(updateLog, 1000, log_url, server_id);
+                    loggers.push({server: server_id, timer: tid});
+            });
+        });
+
+        function updateLog(log_url, server_id){
+            $.get(log_url, function(data){
+                $('#log'+server_id).text(data.log);
+                if(data.state == 'SUCCESS' || data.state == 'FAILURE'){
+                    $.each(loggers, function(index, logger){
+                        if( logger.server == server_id ){
+                            clearInterval(logger.timer);
+                        }
+                    });
+                    $('#gohome').show();
+                }
+            });
+        }
+
+    });
+    {% endif %}
+
+</script>
 {% endblock js %}

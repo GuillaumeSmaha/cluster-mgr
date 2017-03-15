@@ -95,12 +95,12 @@ def new_provider():
         db.session.commit()
 
         conf = ''
-        confile = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                               "templates", "provider.conf")
+        confile = os.path.join(app.root_path, "templates", "slapd", "provider.conf")
         with open(confile, 'r') as c:
             conf = c.read()
         conf_values = {"TLSCACert": cacert, "TLSServerCert": servercert,
-                       "TLSServerKey": serverkey, "admin_pw": admin_pw}
+                       "TLSServerKey": serverkey, "admin_pw": admin_pw,
+                       "mirror_conf": ""}
         conf = conf.format(**conf_values)
         return render_template("editor.html", config=conf, server=server)
 
@@ -134,8 +134,7 @@ def new_consumer():
         db.session.commit()
 
         conf = ''
-        confile = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                               "templates", "consumer.conf")
+        confile = os.path.join(app.root_path, "templates", "slapd", "consumer.conf")
         with open(confile, 'r') as c:
             conf = c.read()
 
@@ -151,12 +150,53 @@ def new_consumer():
     return render_template('new_consumer.html', form=form)
 
 
-@app.route('/new_mirrormode/')
+@app.route('/new_mirrormode/', methods=['GET', 'POST'])
 def new_mirrormode():
     form = NewMirrorModeForm(request.form)
     if form.validate_on_submit():
-        # TODO
-        pass
+        # Server 1
+        host = form.host1.data
+        port = form.port1.data
+        role = 'provider'
+        starttls = form.tls1.data
+        cacert = form.cacert1.data
+        servercert = form.servercert1.data
+        serverkey = form.serverkey1.data
+        admin_pw = form.admin_pw1.data
+        provider = None
+
+        server1 = LDAPServer(host, port, admin_pw, role, starttls,
+                             provider, cacert, servercert, serverkey)
+        db.session.add(server1)
+
+        # Server 2
+        host = form.host2.data
+        port = form.port2.data
+        role = 'provider'
+        starttls = form.tls2.data
+        cacert = form.cacert2.data
+        servercert = form.servercert2.data
+        serverkey = form.serverkey2.data
+        admin_pw = form.admin_pw2.data
+        provider = None
+
+        server2 = LDAPServer(host, port, admin_pw, role, starttls,
+                             provider, cacert, servercert, serverkey)
+        db.session.add(server2)
+
+        db.session.commit()
+        conf = ''
+        confile = os.path.join(app.root_path, "templates", "slapd", "provider.conf")
+        with open(confile, 'r') as c:
+            conf = c.read()
+        mirrorfile = os.path.join(app.root_path, "templates", "slapd", "mirror.conf")
+        with open(mirrorfile, 'r') as m:
+            mirror = m.read()
+        conf = conf.replace('{mirror_conf}', mirror)
+
+        return render_template("editor.html", config=conf, server=None,
+                               servers=[server1, server2])
+
     return render_template('new_mirror_providers.html', form=form)
 
 
@@ -210,11 +250,6 @@ def test_status(task_id):
     if result.state == 'SUCCESS':
         r.delete(key)
     return jsonify([json.loads(d) for d in data])
-
-
-@app.route('/editor/')
-def editor():
-    return render_template('editor.html')
 
 
 @app.route('/server/<int:server_id>/setup/', methods=['POST'])
