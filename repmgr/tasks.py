@@ -7,7 +7,9 @@ from fabric.api import run, execute, cd, put
 from fabric.context_managers import settings
 
 from .application import celery, db
-from .models import LDAPServer
+from .models import LDAPServer, AppConfiguration
+
+ldap.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_NEVER)
 
 
 def log_error_to_redis(r, tid, step, e):
@@ -23,14 +25,14 @@ def log_error_to_redis(r, tid, step, e):
 def initialize_provider(self, server_id):
     initialized = False
     server = LDAPServer.query.get(server_id)
-    ldap.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_NEVER)
+    appconfig = AppConfiguration.query.get(1)
     r = redis.Redis(host='localhost', port=6379, db=0)
     dn = r'cn=replicator,o=gluu'
     replication_user = [
             ('objectclass', [r'person']),
             ('cn', [r'replicator']),
             ('sn', [r'gluu']),
-            ('userpassword', [str(server.replication_pw)])
+            ('userpassword', [str(appconfig.replication_pw)])
             ]
 
     # Step 1: Connection
@@ -48,6 +50,10 @@ def initialize_provider(self, server_id):
     try:
         con.add_s(dn, replication_user)
         r.set('task:{}:add'.format(self.request.id), 'success')
+    except ldap.ALREADY_EXISTS:
+        con.delete_s(dn)
+        con.add_s(dn, replication_user)
+        r.set('task:{}:add'.format(self.request.id), 'success')
     except ldap.LDAPError as e:
         log_error_to_redis(r, self.request.id, 'add', e)
     finally:
@@ -59,7 +65,7 @@ def initialize_provider(self, server_id):
             server.hostname, server.port))
         if server.starttls:
             con.start_tls_s()
-        con.bind_s('cn=replicator,o=gluu', server.replication_pw)
+        con.bind_s('cn=replicator,o=gluu', appconfig.replication_pw)
         r.set('task:{}:recon'.format(self.request.id), 'success')
         initialized = True
     except ldap.LDAPError as e:
@@ -84,7 +90,6 @@ def log_rep_message(r, key, action, status=None, message=None):
 
 @celery.task(bind=True)
 def replicate(self):
-    ldap.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_NEVER)
     r = redis.Redis(host='localhost', port=6379, db=0)
     key = 'test:{}'.format(self.request.id)
     dn = 'cn=testentry,o=gluu'
