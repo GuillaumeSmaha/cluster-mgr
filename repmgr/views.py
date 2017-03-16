@@ -29,13 +29,15 @@ def app_configuration():
     form = AppConfigForm()
     config = AppConfiguration.query.get(1)
     if request.method == 'GET' and config:
-        form.replication_dn.data = config.replication_dn
+        form.replication_dn.data = config.replication_dn.replace(
+                "cn=", "").replace(",o=gluu", "") if config.replication_dn \
+                        else ""
         form.replication_pw.data = config.replication_pw
         form.certificate_folder.data = config.certificate_folder
     if form.validate_on_submit():
         if not config:
             config = AppConfiguration()
-        config.replication_dn = form.replication_dn.data
+        config.replication_dn = "cn={},o=gluu".format(form.replication_dn.data)
         config.replication_pw = form.replication_pw.data
         config.certificate_folder = form.certificate_folder.data
 
@@ -100,7 +102,7 @@ def new_provider():
             conf = c.read()
         conf_values = {"TLSCACert": cacert, "TLSServerCert": servercert,
                        "TLSServerKey": serverkey, "admin_pw": admin_pw,
-                       "mirror_conf": ""}
+                       "mirror_conf": "", "server_id": server.id}
         conf = conf.format(**conf_values)
         return render_template("editor.html", config=conf, server=server)
 

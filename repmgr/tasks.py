@@ -27,10 +27,10 @@ def initialize_provider(self, server_id):
     server = LDAPServer.query.get(server_id)
     appconfig = AppConfiguration.query.get(1)
     r = redis.Redis(host='localhost', port=6379, db=0)
-    dn = r'cn=replicator,o=gluu'
+    dn = appconfig.replication_dn
     replication_user = [
             ('objectclass', [r'person']),
-            ('cn', [r'replicator']),
+            ('cn', [dn.replace("cn=", "").replace(",o=gluu", "")]),
             ('sn', [r'gluu']),
             ('userpassword', [str(appconfig.replication_pw)])
             ]
@@ -65,7 +65,7 @@ def initialize_provider(self, server_id):
             server.hostname, server.port))
         if server.starttls:
             con.start_tls_s()
-        con.bind_s('cn=replicator,o=gluu', appconfig.replication_pw)
+        con.bind_s(dn, appconfig.replication_pw)
         r.set('task:{}:recon'.format(self.request.id), 'success')
         initialized = True
     except ldap.LDAPError as e:
