@@ -168,6 +168,7 @@ def new_mirrormode():
         server1 = LDAPServer(host, port, admin_pw, role, starttls,
                              provider, cacert, servercert, serverkey)
         db.session.add(server1)
+        db.session.flush()
 
         # Server 2
         host = form.host2.data
@@ -178,13 +179,17 @@ def new_mirrormode():
         servercert = form.servercert2.data
         serverkey = form.serverkey2.data
         admin_pw = form.admin_pw2.data
-        provider = None
+        provider = server1.id
 
         server2 = LDAPServer(host, port, admin_pw, role, starttls,
                              provider, cacert, servercert, serverkey)
         db.session.add(server2)
+        db.session.flush()
 
+        server1.provider_id = server2.id
+        db.session.add(server1)
         db.session.commit()
+
         conf = ''
         confile = os.path.join(
                 app.root_path, "templates", "slapd", "provider.conf")

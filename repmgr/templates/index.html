@@ -7,12 +7,11 @@
   <table id="servers" class="table table-bordered">
     <thead>
       <tr>
-        <th>#ID</th>
+        <th>Server ID</th>
         <th>Hostname</th>
         <th>Port</th>
         <th>Role</th>
         <th>StartTLS</th>
-        <th>Server ID</th>
         <th>Replication ID</th>
         <th>Actions</th>
       </tr>
@@ -25,8 +24,7 @@
         <td>{{ server.port }}</td>
         <td>{{ server.role }}</td>
         <td>{% if server.starttls %}<i class="glyphicon glyphicon-ok text-success"></i>{% else %}<i class="glyphicon glyphicon-remove text-danger"></i>{% endif %}</td>
-        <td>{{ server.server_id }}</td>
-        <td>{{ server.replication_id }}</td>
+        <td>{{ server.provider_id }}</td>
         <td>
             {% if server.role == "provider" and not server.initialized %}
                 <a class="btn btn-success btn-xs" href="{{ url_for('initialize', server_id=server.id) }}">Initialize</a>

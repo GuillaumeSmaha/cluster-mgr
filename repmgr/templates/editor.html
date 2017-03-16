@@ -52,6 +52,7 @@
     var log_url;
     var tid;
 
+    {# -------------------------- Mirrormode JS ---------------------------#}
     {% if mirror %}
     var server_id = {{ server.id }};
     var mirror_id = {{ mirror.id }};
@@ -83,14 +84,19 @@
                   */
                 if( id == server_id){
                     clearInterval(server_timer);
+                    server_timer = 0;
                 } else if( id == mirror_id ){
                     clearInterval(mirror_timer);
+                    mirror_timer = 0;
                 }
-                $('#gohome').show();
+                if( server_timer + mirror_timer == 0){
+                    $('#gohome').show();
+                }
             }
         });
     }
 
+    {# -------------------------- Delta-syncrepl JS ---------------------------#}
     {% else %}
     var server_id = {{ server.id }};
     $('#submit').click(function(){
