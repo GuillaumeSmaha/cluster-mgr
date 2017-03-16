@@ -186,18 +186,54 @@ def new_mirrormode():
 
         db.session.commit()
         conf = ''
-        confile = os.path.join(app.root_path, "templates", "slapd", "provider.conf")
+        confile = os.path.join(
+                app.root_path, "templates", "slapd", "provider.conf")
+        mirrorfile = os.path.join(
+                app.root_path, "templates", "slapd", "mirror.conf")
         with open(confile, 'r') as c:
             conf = c.read()
-        mirrorfile = os.path.join(app.root_path, "templates", "slapd", "mirror.conf")
         with open(mirrorfile, 'r') as m:
             mirror = m.read()
         conf = conf.replace('{mirror_conf}', mirror)
 
-        return render_template("editor.html", config=conf, server=None,
-                               servers=[server1, server2])
+        return render_template("editor.html", config=conf, server=server1,
+                               mirror=server2)
 
     return render_template('new_mirror_providers.html', form=form)
+
+
+def generate_mirror_conf(filename, template, s1, s2):
+    appconfig = AppConfiguration.query.get(1)
+    with open(filename, 'w') as f:
+        vals = {'TLSCACert': s1.tls_cacert, 'TLSServerCert': s1.tls_servercert,
+                'TLSServerKey': s1.tls_serverkey, 'admin_pw': s1.admin_pw,
+                'server_id': s1.id, 'r_id': s2.id, 'phost': s2.hostname,
+                'pport': s2.port, 'r_pw': appconfig.replication_pw}
+        conf = template.format(**vals)
+        f.write(conf)
+
+
+@app.route('/mirror/<int:sid1>/<int:sid2>/', methods=['POST'])
+def mirror(sid1, sid2):
+    s1 = LDAPServer.query.get(sid1)
+    s2 = LDAPServer.query.get(sid2)
+
+    file1 = os.path.join(
+            app.root_path, "conffiles", "{}_slapd.conf".format(sid1))
+    file2 = os.path.join(
+            app.root_path, "conffiles", "{}_slapd.conf".format(sid2))
+
+    template = request.form.get('conf')
+    generate_mirror_conf(file1, template, s1, s2)
+    generate_mirror_conf(file2, template, s2, s1)
+
+    task1 = setup_server.delay(sid1, file1)
+    task2 = setup_server.delay(sid2, file2)
+
+    url1 = url_for('setup_log', server_id=sid1, task_id=task1)
+    url2 = url_for('setup_log', server_id=sid2, task_id=task2)
+
+    return jsonify({'url1': url1, 'url2': url2})
 
 
 @app.route('/initialize/<int:server_id>/')
@@ -255,9 +291,9 @@ def test_status(task_id):
 @app.route('/server/<int:server_id>/setup/', methods=['POST'])
 def configure_server(server_id):
     filename = "{}_slapd.conf".format(server_id)
-    filepath = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                            'conffiles', filename)
+    filepath = os.path.join(app.root_path, "conffiles", filename)
     conf = request.form.get('conf')
+
     with open(filepath, 'w') as f:
         f.write(conf)
 

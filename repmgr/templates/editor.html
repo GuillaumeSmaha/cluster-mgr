@@ -12,16 +12,8 @@
 
 <a id="submit" class="btn btn-primary" href="#">Setup LDAP Server</a>
 
-{% if server %}
-<div class="page-header" style="display: none;">
-    <h3>Setting up your server: <small>{{ server.hostname }}</small></h3>
-</div>
-<pre id="log" style="display:none;">
-</pre>
-
-{% elif servers %}
+{% if mirror %}
 <div class="row">
-    {% for server in servers %}
     <div class="col-md-6 col-sm-12">
         <div class="page-header" style="display: none;">
             <h3>Setting up your server: <small>{{ server.hostname }}</small></h3>
@@ -29,8 +21,22 @@
         <pre id="log{{ server.id }}" style="display:none;">
         </pre>
     </div>
-    {% endfor %}
+    <div class="col-md-6 col-sm-12">
+        <div class="page-header" style="display: none;">
+            <h3>Setting up your server: <small>{{ mirror.hostname }}</small></h3>
+        </div>
+        <pre id="log{{ mirror.id }}" style="display:none;">
+        </pre>
+    </div>
 </div>
+
+{% else %}
+<div class="page-header" style="display: none;">
+    <h3>Setting up your server: <small>{{ server.hostname }}</small></h3>
+</div>
+<pre id="log" style="display:none;">
+</pre>
+
 {% endif %}
 
 <a id="gohome" class="btn btn-success btn-block" href="/" style="display:none;">Go to Dashboard</a>
@@ -46,7 +52,46 @@
     var log_url;
     var tid;
 
-    {% if server %}
+    {% if mirror %}
+    var server_id = {{ server.id }};
+    var mirror_id = {{ mirror.id }};
+    var server_timer, mirror_timer;
+
+    $('#submit').click(function(){
+        var conf = editor.getValue();
+        $.post('{{ url_for("mirror", sid1=server.id, sid2=mirror.id) }}', {conf: conf}).done(
+                function(data){
+                    $('#editor-panel').hide();
+                    $('#submit').hide();
+                    $('#alert').hide();
+
+                    $('.page-header, #log'+server_id+', #log'+mirror_id).show();
+                    server_timer = setInterval(updateLog, 1000, data['url1'], server_id);
+                    mirror_timer = setInterval(updateLog, 1000, data['url2'], mirror_id)
+                });
+    });
+
+    function updateLog(url, id){
+        $.get(url, function(data){
+            $('#log'+id).text(data.log);
+            if(data.state == 'SUCCESS' || data.state == 'FAILURE'){
+                /**
+                  TODO: Ensure that the deployment was sucessful. Verify using the following report from the log
+
+                  Symas OpenLDAP LDAP services slapd starting...  done.
+
+                  */
+                if( id == server_id){
+                    clearInterval(server_timer);
+                } else if( id == mirror_id ){
+                    clearInterval(mirror_timer);
+                }
+                $('#gohome').show();
+            }
+        });
+    }
+
+    {% else %}
     var server_id = {{ server.id }};
     $('#submit').click(function(){
         var conf = editor.getValue();
@@ -72,42 +117,6 @@
         });
     }
 
-    {% elif servers %}
-    var server_ids = [{% for server in servers %}{{server.id}},{% endfor %}];
-    var loggers = [];
-
-    $('#submit').click(function(){
-        var conf = editor.getValue();
-        var dummyurl = '{{ url_for("configure_server", server_id=0) }}';
-        $.each(server_ids, function(idx, server_id){
-            $.post(dummyurl.replace(0, server_id), {conf: conf}).done(
-                function(data){
-                    log_url = data.url;
-                    $('#editor-panel').hide();
-                    $('#submit').hide();
-                    $('#alert').hide();
-
-                    $('#log'+server_id+', .page-header').show();
-                    tid = setInterval(updateLog, 1000, log_url, server_id);
-                    loggers.push({server: server_id, timer: tid});
-            });
-        });
-
-        function updateLog(log_url, server_id){
-            $.get(log_url, function(data){
-                $('#log'+server_id).text(data.log);
-                if(data.state == 'SUCCESS' || data.state == 'FAILURE'){
-                    $.each(loggers, function(index, logger){
-                        if( logger.server == server_id ){
-                            clearInterval(logger.timer);
-                        }
-                    });
-                    $('#gohome').show();
-                }
-            });
-        }
-
-    });
     {% endif %}
 
 </script>
