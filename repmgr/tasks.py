@@ -30,7 +30,7 @@ def initialize_provider(self, server_id):
     dn = appconfig.replication_dn
     replication_user = [
             ('objectclass', [r'person']),
-            ('cn', [dn.replace("cn=", "").replace(",o=gluu", "")]),
+            ('cn', [r'{}'.format(dn.replace("cn=", "").replace(",o=gluu", ""))]),
             ('sn', [r'gluu']),
             ('userpassword', [str(appconfig.replication_pw)])
             ]
