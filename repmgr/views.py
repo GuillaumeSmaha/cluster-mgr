@@ -80,6 +80,7 @@ def setup_cluster(topology):
 @app.route('/new_provider/', methods=['GET', 'POST'])
 def new_provider():
     form = NewProviderForm(request.form)
+    appconfig = AppConfiguration.query.first()
     if form.validate_on_submit():
         host = form.hostname.data
         port = form.port.data
@@ -102,7 +103,8 @@ def new_provider():
             conf = c.read()
         conf_values = {"TLSCACert": cacert, "TLSServerCert": servercert,
                        "TLSServerKey": serverkey, "admin_pw": admin_pw,
-                       "mirror_conf": "", "server_id": server.id}
+                       "mirror_conf": "", "server_id": server.id,
+                       "replication_dn": appconfig.replication_dn}
         conf = conf.format(**conf_values)
         return render_template("editor.html", config=conf, server=server)
 
@@ -144,7 +146,8 @@ def new_consumer():
         conf_values = {"TLSCACert": cacert, "TLSServerCert": servercert,
                        "TLSServerKey": serverkey, "admin_pw": admin_pw,
                        "r_id": provider.id, "phost": provider.hostname,
-                       "pport": provider.port, "r_pw": appconfig.replication_pw
+                       "pport": provider.port, "r_pw": appconfig.replication_pw,
+                       "replication_dn": appconfig.replication_dn
                        }
         conf = conf.format(**conf_values)
         return render_template("editor.html", config=conf, server=server)
@@ -215,7 +218,8 @@ def generate_mirror_conf(filename, template, s1, s2):
         vals = {'TLSCACert': s1.tls_cacert, 'TLSServerCert': s1.tls_servercert,
                 'TLSServerKey': s1.tls_serverkey, 'admin_pw': s1.admin_pw,
                 'server_id': s1.id, 'r_id': s2.id, 'phost': s2.hostname,
-                'pport': s2.port, 'r_pw': appconfig.replication_pw}
+                'pport': s2.port, 'r_pw': appconfig.replication_pw,
+                'replication_dn': appconfig.replication_dn}
         conf = template.format(**vals)
         f.write(conf)
 
