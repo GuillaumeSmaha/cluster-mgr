@@ -35,7 +35,7 @@ function logEntry(data){
     } else if (data.status == 'FAILED') {
         icon.className = 'glyphicon glyphicon-remove text-danger';
     } else if (data.status == 'NOSTATUS'){
-        icon.className = 'glyphicon glyphicon-hourglass text-info';
+        icon.className = 'glyphicon text-info';
     }
     td2.appendChild(icon);
     tr.appendChild(td2);
