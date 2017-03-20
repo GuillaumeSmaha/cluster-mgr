@@ -98,7 +98,8 @@ def new_provider():
         db.session.commit()
 
         conf = ''
-        confile = os.path.join(app.root_path, "templates", "slapd", "provider.conf")
+        confile = os.path.join(app.root_path, "templates", "slapd",
+                               "provider.conf")
         with open(confile, 'r') as c:
             conf = c.read()
         conf_values = {"TLSCACert": cacert, "TLSServerCert": servercert,
@@ -138,15 +139,16 @@ def new_consumer():
         db.session.commit()
 
         conf = ''
-        confile = os.path.join(app.root_path, "templates", "slapd", "consumer.conf")
+        confile = os.path.join(app.root_path, "templates", "slapd",
+                               "consumer.conf")
         with open(confile, 'r') as c:
             conf = c.read()
 
         appconfig = AppConfiguration.query.get(1)
         conf_values = {"TLSCACert": cacert, "TLSServerCert": servercert,
                        "TLSServerKey": serverkey, "admin_pw": admin_pw,
-                       "r_id": provider.id, "phost": provider.hostname,
-                       "pport": provider.port, "r_pw": appconfig.replication_pw,
+                       "phost": provider.hostname, "pport": provider.port,
+                       "r_id": provider.id, "r_pw": appconfig.replication_pw,
                        "replication_dn": appconfig.replication_dn
                        }
         conf = conf.format(**conf_values)
