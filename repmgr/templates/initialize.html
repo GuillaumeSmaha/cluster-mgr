@@ -1,61 +1,50 @@
 {% extends "base.html" %}
 {% block  content %}
 <h2>Initializing server  {{ server.hostname }}</h2>
-<div id="conn" class="panel panel-default">
-  <div class="panel-heading">
-    Connecting to the server {{ server.hostname }}:{{ server.port }} ...
-    <span class="pull-right text-success" style="display: none"><i class="glyphicon glyphicon-ok"></i></span>
-    <span class="pull-right text-danger" style="display: none"><i class="glyphicon glyphicon-warning-sign"></i></span>
-  </div>
-  <div class="panel-body"></div>
-</div>
-
-<div id="add" class="panel panel-default">
-    <div class="panel-heading">
-    Adding the replication user to the server ...
-    <span class="pull-right text-success" style="display: none"><i class="glyphicon glyphicon-ok"></i></span>
-    <span class="pull-right text-danger" style="display: none"><i class="glyphicon glyphicon-warning-sign"></i></span>
-    </div>
-    <div class="panel-body"></div>
-</div>
-
-<div id="recon" class="panel panel-default">
-    <div class="panel-heading">
-    Reconnecting and verifying authentication as the replication user ...
-    <span class="pull-right text-success" style="display: none"><i class="glyphicon glyphicon-ok"></i></span>
-    <span class="pull-right text-danger" style="display: none"><i class="glyphicon glyphicon-warning-sign"></i></span>
-    </div>
-    <div class="panel-body"></div>
-</div>
-
+<ul id="logger" class="list-group">
+</ul>
 <a href="/" id="goback" class="btn btn-primary" style="display: none">Go back Home</a>
 {% endblock %}
 
 {% block js %}
 <script>
+function logitem(message, state){
+    var item = document.createElement('li');
+    item.setAttribute('class', 'list-group-item');
+    var icon = document.createElement('i');
+    if ( state == 'success' ){
+        icon.setAttribute('class', 'glyphicon glyphicon-ok pull-right');
+        item.setAttribute('class', 'list-group-item text-success');
+    } else if ( state == 'error' ) {
+        icon.setAttribute('class', 'glyphicon glyphicon-warning-sign pull-right')
+        item.setAttribute('class', 'list-group-item text-danger');
+    } else if ( state == 'info' ){
+        icon.setAttribute('class', 'glyphicon glyphicon-tasks')
+        item.setAttribute('class', 'list-group-item list-group-item-info');
+    }
+    item.appendChild(icon);
+    var msgtext = document.createTextNode(" "+message);
+    item.appendChild(msgtext);
+    return item;
+}
+
 var task_id = "{{ task.id }}";
-var tid;
+var timer;
+
 function updateLog(){
-    $.get('{{ url_for("task_status", task_id=task.id) }}', function(data){
-        var steps = ['conn', 'add', 'recon'];
-        for(var i=0; i<steps.length; i++){
-            var k = steps[i];
-            if(data[k].status == 'success'){
-                $('#'+k+' > .panel-heading > span.text-success').show();
-                $('#'+k).removeClass('panel-default').addClass('panel-success');
-                $('#'+k+' > .panel-body').text("SUCCESS");
-            } else if (data[k].status == 'failed'){
-                $('#'+k+' > .panel-heading > span.text-danger').show();
-                $('#'+k+' > .panel-body').text(data[k].error);
-                $('#'+k).removeClass('panel-default').addClass('panel-danger');
-            }
-            if(data.recon.status == 'failed' || data.recon.status == 'success'){
-                clearInterval(tid);
-                $('#goback').show('slow');
-            }
+    $.get('{{ url_for("get_log", task_id=task.id) }}', function(data){
+        var logs = data.messages;
+        var logged_msgs = $('.list-group-item').length;
+        for(var i=logged_msgs; i<logs.length; i++){
+            $('#logger').append(logitem(logs[i].msg, logs[i].level));
+        }
+        if(data.state == "SUCCESS" || data.state == "FAILED"){
+            clearInterval(timer);
+            $('#goback').show('slow');
         }
     });
 }
-tid = setInterval(updateLog, 1000);
+
+timer = setInterval(updateLog, 1000);
 </script>
 {% endblock %}

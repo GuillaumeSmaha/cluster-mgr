@@ -6,7 +6,7 @@ from flask import render_template, redirect, url_for, flash, request, jsonify,\
         session
 from celery.result import AsyncResult
 
-from .application import app, db, celery
+from .application import app, db, celery, wlogger
 from .models import LDAPServer, AppConfiguration
 from .forms import NewProviderForm, NewConsumerForm, AppConfigForm, \
         NewMirrorModeForm
@@ -265,23 +265,14 @@ def initialize(server_id):
     return render_template('initialize.html', server=server, task=task)
 
 
-@app.route('/task/<task_id>')
-def task_status(task_id):
-    r = redis.Redis(host='localhost', port=6379, db=0)
-    steps = ['conn', 'add', 'recon']
-    data = {}
-    for step in steps:
-        key = 'task:{0}:{1}'.format(task_id, step)
-        data[step] = dict([('status', r.get(key)),
-                          ('error', r.get(key+':error'))])
-
+@app.route('/log/<task_id>')
+def get_log(task_id):
+    msgs = wlogger.get_messages(task_id)
     result = AsyncResult(id=task_id, app=celery)
-    if result.state == 'SUCCESS':
-        for step in steps:
-            key = 'task:{0}:{1}'.format(task_id, step)
-            r.delete(key)
-            r.delete(key+':error')
-    return jsonify(data)
+    if result.state == 'SUCCESS' or result.state == 'FAILED':
+        wlogger.clean(task_id)
+    log = {'task_id': task_id, 'state': result.state, 'messages': msgs}
+    return jsonify(log)
 
 
 @app.route('/fulltest/run')

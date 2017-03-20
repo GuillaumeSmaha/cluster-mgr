@@ -6,19 +6,10 @@ import time
 from fabric.api import run, execute, cd, put
 from fabric.context_managers import settings
 
-from .application import celery, db
+from .application import celery, db, wlogger
 from .models import LDAPServer, AppConfiguration
 
 ldap.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_NEVER)
-
-
-def log_error_to_redis(r, tid, step, e):
-    key = 'task:{0}:{1}'.format(tid, step)
-    r.set(key, 'failed')
-    if type(e.message) == dict and 'desc' in e.message:
-        r.set(key+':error', e.message['desc'])
-    else:
-        r.set(key+':error', "%s" % e)
 
 
 @celery.task(bind=True)
@@ -26,50 +17,69 @@ def initialize_provider(self, server_id):
     initialized = False
     server = LDAPServer.query.get(server_id)
     appconfig = AppConfiguration.query.get(1)
-    r = redis.Redis(host='localhost', port=6379, db=0)
     dn = appconfig.replication_dn
     replication_user = [
             ('objectclass', [r'person']),
-            ('cn', [r'{}'.format(dn.replace("cn=", "").replace(",o=gluu", ""))]),
+            ('cn', [r'{}'.format(
+                dn.replace("cn=", "").replace(",o=gluu", ""))]),
             ('sn', [r'gluu']),
             ('userpassword', [str(appconfig.replication_pw)])
             ]
 
     # Step 1: Connection
+    wlogger.log(self.request.id, 'Connecting to {}'.format(server.hostname))
     try:
         con = ldap.initialize('ldap://{}:{}'.format(
             server.hostname, server.port))
         if server.starttls:
             con.start_tls_s()
         con.bind_s('cn=directory manager,o=gluu', server.admin_pw)
-        r.set('task:{}:conn'.format(self.request.id), 'success')
+        wlogger.log(self.request.id, 'Connection established.', 'success',
+                    step='conn')
     except ldap.LDAPError as e:
-        log_error_to_redis(r, self.request.id, 'conn', e)
+        if type(e.message) == dict and 'desc' in e.message:
+            wlogger.log(self.request.id, e.message['desc'], 'error',
+                        step='conn')
+        else:
+            wlogger.log(self.request.id, "%s" % e, 'error', step='conn')
 
     # Step 2: Add replication user
+    wlogger.log(self.request.id, 'Adding the replication user.')
     try:
         con.add_s(dn, replication_user)
-        r.set('task:{}:add'.format(self.request.id), 'success')
+        wlogger.log(self.request.id, 'Replication user added.', 'success',
+                    step='add')
     except ldap.ALREADY_EXISTS:
         con.delete_s(dn)
         con.add_s(dn, replication_user)
-        r.set('task:{}:add'.format(self.request.id), 'success')
+        wlogger.log(self.request.id, 'Replication user added.', 'success',
+                    step='add')
     except ldap.LDAPError as e:
-        log_error_to_redis(r, self.request.id, 'add', e)
+        if type(e.message) == dict and 'desc' in e.message:
+            wlogger.log(self.request.id, e.message['desc'], 'error',
+                        step='add')
+        else:
+            wlogger.log(self.request.id, "%s" % e, 'error', step='add')
     finally:
         con.unbind()
 
     # Step 3: Reconnect as replication user
+    wlogger.log(self.request.id, 'Authenticating as the Replicaiton DN.')
     try:
         con = ldap.initialize('ldap://{}:{}'.format(
             server.hostname, server.port))
         if server.starttls:
             con.start_tls_s()
         con.bind_s(dn, appconfig.replication_pw)
-        r.set('task:{}:recon'.format(self.request.id), 'success')
+        wlogger.log(self.request.id, 'Reconnecting as the replication user.',
+                    'success', step='recon')
         initialized = True
     except ldap.LDAPError as e:
-        log_error_to_redis(r, self.request.id, 'recon', e)
+        if type(e.message) == dict and 'desc' in e.message:
+            wlogger.log(self.request.id, e.message['desc'], 'error',
+                        step='recon')
+        else:
+            wlogger.log(self.request.id, "%s" % e, 'error', step='recon')
     finally:
         con.unbind()
 

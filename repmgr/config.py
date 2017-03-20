@@ -7,6 +7,9 @@ class Config(object):
     BASE_DN = 'o=gluu'
     CELERY_BROKER_URL = 'redis://localhost:6379'
     CELERY_RESULT_BACKEND = 'redis://localhost:6379'
+    REDIS_HOST = 'localhost'
+    REDIS_PORT = 6379
+    REDIS_LOG_DB = 0
 
 
 class ProductionConfig(Config):
