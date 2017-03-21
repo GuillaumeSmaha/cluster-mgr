@@ -89,19 +89,9 @@ def initialize_provider(self, server_id):
         db.session.commit()
 
 
-def log_rep_message(r, key, action, status=None, message=None):
-    if not status:
-        status = 'SUCCESS'
-    if not message:
-        message = 'Success'
-    msg = {'action': action, 'status': status, 'message': message}
-    r.rpush(key, json.dumps(msg))
-
-
 @celery.task(bind=True)
 def replicate(self):
-    r = redis.Redis(host='localhost', port=6379, db=0)
-    key = 'test:{}'.format(self.request.id)
+    taskid = self.request.id
     dn = 'cn=testentry,o=gluu'
     replication_user = [
             ('objectclass', ['person']),
@@ -109,8 +99,9 @@ def replicate(self):
             ('sn', ['gluu']),
             ]
 
-    log_rep_message(r, key, 'Listing all providers', 'NOSTATUS')
+    wlogger.log(taskid, 'Listing all providers')
     providers = LDAPServer.query.filter_by(role="provider").all()
+    wlogger.log(taskid, 'Available providers: {}'.format(len(providers)))
 
     for provider in providers:
         # connect to the server
@@ -120,26 +111,26 @@ def replicate(self):
             if provider.starttls:
                 procon.start_tls_s()
             procon.bind_s('cn=directory manager,o=gluu', provider.admin_pw)
-            log_rep_message(r, key, 'Connecting to the provider: {}'.format(
-                provider.hostname))
+            wlogger.log(taskid, 'Connecting to the provider: {}'.format(
+                provider.hostname), 'success')
             # add a entry to the server
             procon.add_s(dn, replication_user)
-            log_rep_message(
-                r, key, 'Adding the test entry {} to the provider'.format(dn))
+            wlogger.log(taskid,
+                        'Adding the test entry {} to the provider'.format(dn),
+                        'success')
         except ldap.LDAPError as e:
-            log_rep_message(
-                r, key, 'Adding test data to the provider: {}'.format(
-                    provider.hostname), 'FAILED', "{}".format(e))
+            wlogger.log(taskid,
+                        'Failed to add test data to provider. {}'.format(e),
+                        'error')
             continue
 
         consumers = provider.consumers
-        log_rep_message(
-            r, key, 'Listing consumers linked to the provider {}: {}'.format(
-                provider.hostname, len(consumers)), 'NOSTATUS')
+        wlogger.log(taskid,
+                    'Listing consumers linked to the provider {}'.format(
+                        provider.hostname))
         # get list of all the consumers
         for consumer in consumers:
-            log_rep_message(
-                r, key, 'Verifying data in consumers: {} of {}'.format(
+            wlogger.log(taskid, 'Verifying data in consumers: {} of {}'.format(
                     consumers.index(consumer)+1, len(consumers)))
             con = ldap.initialize('ldap://{}:{}'.format(consumer.hostname,
                                                         consumer.port))
@@ -147,28 +138,24 @@ def replicate(self):
                 if consumer.starttls:
                     con.start_tls_s()
                 con.bind_s('cn=directory manager,o=gluu', consumer.admin_pw)
-                log_rep_message(r, key,
-                                'Connecting to the consumer: {}'.format(
-                                    consumer.hostname))
+                wlogger.log(taskid, 'Connecting to the consumer: {}'.format(
+                    consumer.hostname), 'success')
             except ldap.LDAPError as e:
-                log_rep_message(r, key,
-                                'Connecting to the consumer: {}'.format(
-                                    consumer.hostname), 'FAILED',
-                                "{}".format(e))
+                wlogger.log(taskid, 'Failed to connect to {0}. {1}'.format(
+                                    consumer.hostname, e), 'error')
                 continue
 
-            log_rep_message(r, key, 'Searching for the test data', 'NOSTATUS')
             # fetch the data from each consumer and verify the new entry exists
             for i in range(5):
                 if con.compare_s(dn, 'sn', 'gluu'):
-                    log_rep_message(
-                        r, key,
-                        'Test data is replicated and available in consumer.')
+                    wlogger.log(taskid,
+                                'Test data is replicated and available.',
+                                'success')
                     break
                 else:
-                    log_rep_message(
-                        r, key,
-                        'Test data not found. Retrying in 3 secs.', 'NOSTATUS')
+                    wlogger.log(taskid,
+                                'Test data not found. Retrying in 3 secs.',
+                                'error')
                     time.sleep(3)
             con.unbind()
 
@@ -178,20 +165,22 @@ def replicate(self):
             procon.delete_s(dn)
             persists = procon.compare_s(dn, 'sn', 'gluu')
             if persists:
-                log_rep_message(r, key, 'Deleting test entry from provider',
-                                'FAILED', 'Entry still persists.')
+                wlogger.log(taskid, 'Delete operation failed. Data exists.',
+                            'error')
         except ldap.NO_SUCH_OBJECT:
-            log_rep_message(r, key, 'Deleting test entry from the provider')
+            wlogger.log(taskid, 'Deleting test data from provider: {}'.format(
+                provider.hostname), 'success')
         except ldap.LDAPError as e:
-            log_rep_message(r, key, 'Deleting test entry from provider',
-                            'FAILED', "{}".format(e))
+            wlogger.log(taskid,
+                        'Failed to delete test data from provider: {}'.format(
+                            provider.hostname), 'error')
         finally:
             procon.unbind()
 
         # verify the data is removed from the consumers
         for consumer in consumers:
-            log_rep_message(
-                r, key,
+            wlogger.log(
+                taskid,
                 "Verifying data is removed from consumers: {} of {}".format(
                     consumers.index(consumer)+1, len(consumers)))
             con = ldap.initialize('ldap://{}:{}'.format(consumer.hostname,
@@ -202,17 +191,23 @@ def replicate(self):
                     con.start_tls_s()
                 persists = con.compare_s(dn, 'sn', 'gluu')
                 if persists:
-                    log_rep_message(r, key, 'Deleting test entry from provider',
-                                    'FAILED', 'Entry still persists.')
-            except ldap.NO_SUCH_OBJECT:
-                log_rep_message(r, key, 'Test data removed from the consumer {}'.format(consumer.hostname))
+                    wlogger.log(
+                        taskid,
+                        'Failed to remove test data from consumer: {}'.format(
+                            consumer.hostname), 'error')
+                else:
+                    wlogger.log(
+                        taskid,
+                        'Test data removed from the consumer: {}'.format(
+                            consumer.hostname), 'success')
             except ldap.LDAPError as e:
-                log_rep_message(r, key, 'Test data removed from the consumer {}'.format(consumer.hostname),
-                                'FAILED', "{}".format(e))
+                wlogger.log(
+                    taskid, 'Failed to test consumer: {0}. Error: {1}'.format(
+                        consumer.hostname, e), 'error')
             finally:
                 con.unbind()
 
-    log_rep_message(r, key, 'Test Complete.')
+    wlogger.log(taskid, 'Replication test Complete.', 'success')
 
 
 def generate_slapd(key, conffile):
@@ -236,9 +231,9 @@ def generate_slapd(key, conffile):
     r.rpush(key, "{0}\n> {1}".format(log.real_command, log))
     if 'failed' in log:
         r.rpush(key, "Debugging slapd...")
-        log = run("/opt/symas/lib64/slapd -d 1 -f /opt/symas/etc/openldap/slapd.conf")
+        log = run("/opt/symas/lib64/slapd -d 1 "
+                  "-f /opt/symas/etc/openldap/slapd.conf")
         r.rpush(key, "{0}\n> {1}".format(log.real_command, log))
-
 
 
 @celery.task(bind=True)

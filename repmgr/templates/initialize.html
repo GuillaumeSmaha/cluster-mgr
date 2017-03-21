@@ -1,6 +1,10 @@
 {% extends "base.html" %}
 {% block  content %}
-<h2>Initializing server  {{ server.hostname }}</h2>
+{% if server %}
+    <h2>Initializing server  {{ server.hostname }}</h2>
+{% else %}
+    <h2>Full replication test</h2>
+{% endif %}
 <ul id="logger" class="list-group">
 </ul>
 <a href="/" id="goback" class="btn btn-primary" style="display: none">Go back Home</a>

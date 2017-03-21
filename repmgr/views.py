@@ -278,18 +278,7 @@ def get_log(task_id):
 @app.route('/fulltest/run')
 def test_replication():
     task = replicate.delay()
-    return render_template('reptest.html', task=task)
-
-
-@app.route('/fulltest/<task_id>/status')
-def test_status(task_id):
-    r = redis.Redis(host='localhost', port=6379, db=0)
-    key = 'test:{}'.format(task_id)
-    data = r.lrange(key, 0, -1)
-    result = AsyncResult(id=task_id, app=celery)
-    if result.state == 'SUCCESS':
-        r.delete(key)
-    return jsonify([json.loads(d) for d in data])
+    return render_template('initialize.html', task=task)
 
 
 @app.route('/server/<int:server_id>/setup/', methods=['POST'])
