@@ -1,9 +1,8 @@
 import ldap
-import redis
-import json
 import time
 
 from fabric.api import run, execute, cd, put
+from fabric.contrib.files import exists
 from fabric.context_managers import settings
 
 from .application import celery, db, wlogger
@@ -210,36 +209,89 @@ def replicate(self):
     wlogger.log(taskid, 'Replication test Complete.', 'success')
 
 
-def generate_slapd(key, conffile):
-    r = redis.Redis(host='localhost', port=6379, db=0)
-    r.rpush(key, "Copying slapd.conf file to remote server")
+def generate_slapd(taskid, conffile):
+    wlogger.log(taskid, "Copying slapd.conf file to remote server")
     log = "> "+str(put(conffile, '/opt/symas/etc/openldap/slapd.conf'))
-    r.rpush(key, log)
+    wlogger.log(taskid, log)
     status = run('service solserver status')
-    r.rpush(key, "Checking Status of solserver\n> "+status)
+    wlogger.log(taskid, "Checking Status of solserver\n> "+status)
     if 'is running' in status:
         log = run('service solserver stop')
-        r.rpush(key, "{0}\n> {1}".format(log.command, log))
+        wlogger.log(taskid, "{0}\n> {1}".format(log.command, log))
     with cd('/opt/symas/etc/openldap/'):
-        r.rpush(key, "Generating slad.d Online Configuration")
+        wlogger.log(taskid, "Generating slad.d Online Configuration")
         run('rm -rf slapd.d')
         run('mkdir slapd.d')
         log = run('/opt/symas/bin/slaptest -f slapd.conf -F slapd.d')
-        r.rpush(key, "{0}\n> {1}".format(log.command, log))
-    r.rpush(key, "Starting solserver")
+        wlogger.log(taskid, "{0}\n> {1}".format(log.command, log))
+    wlogger.log(taskid, "Starting solserver")
     log = run('service solserver start')
-    r.rpush(key, "{0}\n> {1}".format(log.real_command, log))
+    wlogger.log(taskid, "{0}\n> {1}".format(log.real_command, log))
     if 'failed' in log:
-        r.rpush(key, "Debugging slapd...")
+        wlogger.log(taskid, "Debugging slapd...")
         log = run("/opt/symas/lib64/slapd -d 1 "
                   "-f /opt/symas/etc/openldap/slapd.conf")
-        r.rpush(key, "{0}\n> {1}".format(log.real_command, log))
+        wlogger.log(taskid, "{0}\n> {1}".format(log.real_command, log))
 
 
 @celery.task(bind=True)
 def setup_server(self, server_id, conffile):
-    key = 'task:{}'.format(self.request.id)
     server = LDAPServer.query.get(server_id)
     host = "root@{}".format(server.hostname)
     with settings(warn_only=True):
-        execute(generate_slapd, key, conffile, hosts=[host])
+        execute(generate_slapd, self.request.id, conffile, hosts=[host])
+
+
+def check_certificates(taskid, server):
+    wlogger.log(taskid, "Checking for Server Certificates.")
+    if exists(server.tls_cacert):
+        wlogger.log(taskid, "TLS CA Cert: {}".format(server.tls_cacert),
+                    "success")
+    else:
+        wlogger.log(taskid, "TLS CA Cert: {}".format(server.tls_cacert),
+                    "error")
+    if exists(server.tls_servercert):
+        wlogger.log(taskid, "TLS Server Cert:{}".format(server.tls_servercert),
+                    "success")
+    else:
+        wlogger.log(taskid, "TLS Server Cert:{}".format(server.tls_servercert),
+                    "error")
+    if exists(server.tls_serverkey):
+        wlogger.log(taskid, "TLS Server Key: {}".format(server.tls_serverkey),
+                    "success")
+    else:
+        wlogger.log(taskid, "TLS Server Key: {}".format(server.tls_serverkey),
+                    "error")
+
+
+def check_ldap_data_directories(taskid, server):
+    wlogger.log(taskid, "Checking for LDAP Data Directories")
+    if exists('/opt/gluu/data/main_db'):
+        wlogger.log(taskid, "Main data dir: /opt/gluu/data/main_db", "success")
+    else:
+        wlogger.log(taskid, "Missing main data dir /opt/gluu/data/main_db",
+                    "error")
+        wlogger.log(taskid, "Creating main data dir /opt/gluu/data/main_db")
+        run('mkdir -p /opt/gluu/data/main_db')
+
+    if exists('/opt/gluu/data/accesslog'):
+        wlogger.log(taskid, "Accesslog dir: /opt/gluu/data/accesslog",
+                    "success")
+    else:
+        wlogger.log(taskid, "Missing Accesslog dir /opt/gluu/data/accesslog",
+                    "error")
+        wlogger.log(taskid, "Creating Accesslog dir /opt/gluu/data/accesslog")
+        run('mkdir -p /opt/gluu/data/accesslog')
+
+
+@celery.task(bind=True)
+def check_requirements(self, server_id):
+    # check for the following TODO
+    # 1. existance of all the certificate files
+    # 2. existance of the default data directories
+    server = LDAPServer.query.get(server_id)
+    host = "root@{}".format(server.hostname)
+    with settings(warn_only=True):
+        # Check certificates
+        execute(check_certificates, self.request.id, server, hosts=[host])
+        # Check LDAP data directories

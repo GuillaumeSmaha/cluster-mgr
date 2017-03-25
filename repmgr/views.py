@@ -1,6 +1,4 @@
 import os
-import redis
-import json
 
 from flask import render_template, redirect, url_for, flash, request, jsonify,\
         session
@@ -243,8 +241,8 @@ def mirror(sid1, sid2):
     task1 = setup_server.delay(sid1, file1)
     task2 = setup_server.delay(sid2, file2)
 
-    url1 = url_for('setup_log', server_id=sid1, task_id=task1)
-    url2 = url_for('setup_log', server_id=sid2, task_id=task2)
+    url1 = url_for('get_log', task_id=task1)
+    url2 = url_for('get_log', task_id=task2)
 
     return jsonify({'url1': url1, 'url2': url2})
 
@@ -291,16 +289,4 @@ def configure_server(server_id):
         f.write(conf)
 
     task_id = setup_server.delay(server_id, filepath)
-    return jsonify({'url': url_for('setup_log',
-                    server_id=server_id, task_id=task_id)})
-
-
-@app.route('/server/<int:server_id>/setup/<task_id>')
-def setup_log(server_id, task_id):
-    r = redis.Redis(host='localhost', port=6379, db=0)
-    key = 'task:{}'.format(task_id)
-    result = AsyncResult(id=task_id, app=celery)
-    data = {'state': result.state, 'log': '\n'.join(r.lrange(key, 0, -1))}
-    if result.state == 'SUCCESS' or result.state == 'FAILURE':
-        r.delete(key)
-    return jsonify(data)
+    return jsonify({'url': url_for('get_log', task_id=task_id)})

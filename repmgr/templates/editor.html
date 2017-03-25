@@ -74,7 +74,12 @@
 
     function updateLog(url, id){
         $.get(url, function(data){
-            $('#log'+id).text(data.log);
+            var log = '';
+            for(var i=0; i<data.messages.length; i++){
+                log += "\n"+ data.messages[i].msg;
+            }
+            $('#log'+id).text(log);
+
             if(data.state == 'SUCCESS' || data.state == 'FAILURE'){
                 /**
                   TODO: Ensure that the deployment was sucessful. Verify using the following report from the log
@@ -115,7 +120,11 @@
 
     function updateLog(){
         $.get(log_url, function(data){
-            $('#log').text(data.log);
+            var log = '';
+            for(var i=0; i<data.messages.length; i++){
+                log += "\n"+ data.messages[i].msg;
+            }
+            $('#log').text(log);
             if(data.state == 'SUCCESS' || data.state == 'FAILURE'){
                 clearInterval(tid);
                 $('#gohome').show();
