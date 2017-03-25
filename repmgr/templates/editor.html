@@ -40,6 +40,7 @@
 {% endif %}
 
 <a id="gohome" class="btn btn-success btn-block" href="/" style="display:none;">Go to Dashboard</a>
+<a id="retry" class="btn btn-danger btn-block" href="#" style="display:none;">Retry Deployment</a>
 {% endblock content %}
 
 
@@ -104,14 +105,12 @@
     {# -------------------------- Delta-syncrepl JS ---------------------------#}
     {% else %}
     var server_id = {{ server.id }};
-    $('#submit').click(function(){
+    $('#submit, #retry').click(function(){
         var conf = editor.getValue();
         $.post('{{ url_for("configure_server", server_id=server.id) }}', {conf: conf}).done(
                 function(data){
                     log_url = data.url;
-                    $('#editor-panel').hide();
-                    $('#submit').hide();
-                    $('#alert').hide();
+                    $('#editor-panel, #submit, #alert, #retry').hide();
 
                     $('#log, .page-header').show();
                     tid = setInterval(updateLog, 1000);
@@ -127,7 +126,11 @@
             $('#log').text(log);
             if(data.state == 'SUCCESS' || data.state == 'FAILURE'){
                 clearInterval(tid);
-                $('#gohome').show();
+                if( log.search('Debugging slapd...') == -1 ){
+                    $('#gohome').show();
+                }else{
+                    $('#retry').show();
+                }
             }
         });
     }
