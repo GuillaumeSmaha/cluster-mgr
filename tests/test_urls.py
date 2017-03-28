@@ -21,11 +21,7 @@ class UrlsTestCase(unittest.TestCase):
 
     def test_01_homepage(self):
         resp = self.app.get('/')
-        self.assertIn('h1', resp.data)
-
-    def test_02_add_master_server(self):
-        page = self.app.get('/add_master/')
-        self.assertIn('<h2 class="page-header">New Master Server</h2>', page.data)
+        self.assertIn('h2', resp.data)
 
 if __name__ == '__main__':
     unittest.main()
