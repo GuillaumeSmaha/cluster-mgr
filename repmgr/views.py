@@ -1,6 +1,6 @@
 import os
 
-from flask import render_template, redirect, url_for, flash, request, jsonify, \
+from flask import render_template, redirect, url_for, flash, request, jsonify,\
     session
 from celery.result import AsyncResult
 
@@ -9,6 +9,7 @@ from .models import LDAPServer, AppConfiguration, KeyRotation
 from .forms import NewProviderForm, NewConsumerForm, AppConfigForm, \
     NewMirrorModeForm, KeyRotationForm
 from .tasks import initialize_provider, replicate, setup_server
+from .utils import ldap_encode
 
 
 @app.route('/')
@@ -100,10 +101,15 @@ def new_provider():
                                "provider.conf")
         with open(confile, 'r') as c:
             conf = c.read()
-        conf_values = {"TLSCACert": cacert, "TLSServerCert": servercert,
-                       "TLSServerKey": serverkey, "admin_pw": admin_pw,
-                       "mirror_conf": "", "server_id": server.id,
-                       "replication_dn": appconfig.replication_dn}
+        conf_values = {"openldapTLSCACert": cacert,
+                       "openldapTLSCert": servercert,
+                       "openldapTLSKey": serverkey,
+                       "encoded_ldap_pw": ldap_encode(admin_pw),
+                       "mirror_conf": "",
+                       "server_id": server.id,
+                       "replication_dn": appconfig.replication_dn,
+                       "openldapSchemaFolder": "/opt/gluu/schema/openldap",
+                       "BCRYPT": "{BCRYPT}"}
         conf = conf.format(**conf_values)
         return render_template("editor.html", config=conf, server=server)
 

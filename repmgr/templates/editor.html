@@ -70,7 +70,9 @@
                     $('.page-header, #log'+server_id+', #log'+mirror_id).show();
                     server_timer = setInterval(updateLog, 1000, data['url1'], server_id);
                     mirror_timer = setInterval(updateLog, 1000, data['url2'], mirror_id)
-                });
+                }).error(function(){
+            alert("The request to initialize the servers failed. Check the server logs for errors.");
+        });
     });
 
     function updateLog(url, id){
@@ -114,7 +116,9 @@
 
                     $('#log, .page-header').show();
                     tid = setInterval(updateLog, 1000);
-                });
+                }).error(function(){
+            alert("The request to initialize the server failed. Check server logs.");
+        });
     });
 
     function updateLog(){
