@@ -43,3 +43,23 @@ class AppConfiguration(db.Model):
     replication_pw = db.Column(db.String(200))
     certificate_folder = db.Column(db.String(200))
     topology = db.Column(db.String(30))
+
+
+class KeyRotation(db.Model):
+    __tablename__ = "keyrotation"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # key rotation interval (in days)
+    interval = db.Column(db.Integer)
+
+    # timestamp when last rotation occured
+    rotated_at = db.Column(db.DateTime(True))
+
+    # rotation type based on available backends (oxeleven or jks)
+    type = db.Column(db.String(16))
+
+    oxeleven_url = db.Column(db.String(255))
+
+    # token used by oxAuth to access oxEleven (encrypted using bcrypt)
+    oxauth_token = db.Column(db.String(255))

@@ -1,13 +1,13 @@
 import os
 
-from flask import render_template, redirect, url_for, flash, request, jsonify,\
-        session
+from flask import render_template, redirect, url_for, flash, request, jsonify, \
+    session
 from celery.result import AsyncResult
 
 from .application import app, db, celery, wlogger
-from .models import LDAPServer, AppConfiguration
+from .models import LDAPServer, AppConfiguration, KeyRotation
 from .forms import NewProviderForm, NewConsumerForm, AppConfigForm, \
-        NewMirrorModeForm
+    NewMirrorModeForm, KeyRotationForm
 from .tasks import initialize_provider, replicate, setup_server
 
 
@@ -290,3 +290,27 @@ def configure_server(server_id):
 
     task_id = setup_server.delay(server_id, filepath)
     return jsonify({'url': url_for('get_log', task_id=task_id)})
+
+
+@app.route("/key_rotation", methods=["GET", "POST"])
+def key_rotation():
+    rotation = KeyRotation.query.first()
+    form = KeyRotationForm()
+
+    if request.method == "GET" and rotation is not None:
+        form.interval.data = rotation.interval
+        form.type.data = rotation.type
+        form.oxeleven_url.data = rotation.oxeleven_url
+
+    if form.validate_on_submit():
+        if not rotation:
+            rotation = KeyRotation()
+
+        rotation.interval = form.interval.data
+        rotation.type = form.type.data
+        rotation.oxeleven_url = form.oxeleven_url.data
+        rotation.oxauth_token = form.oxauth_token.data
+        db.session.add(rotation)
+        db.session.commit()
+        return redirect(url_for("key_rotation"))
+    return render_template("key_rotation.html", form=form, rotation=rotation)

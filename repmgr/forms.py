@@ -1,7 +1,7 @@
 from flask_wtf import FlaskForm
 from wtforms import StringField, SelectField, BooleanField, IntegerField, \
-        PasswordField
-from wtforms.validators import DataRequired, Regexp
+    PasswordField, RadioField
+from wtforms.validators import DataRequired, Regexp, AnyOf
 
 
 class NewProviderForm(FlaskForm):
@@ -50,3 +50,14 @@ class AppConfigForm(FlaskForm):
     replication_pw = PasswordField('Replication Manager Password',
                                    validators=[DataRequired()])
     certificate_folder = StringField('Certificate Folder')
+
+
+class KeyRotationForm(FlaskForm):
+    interval = IntegerField("Rotation Interval", validators=[DataRequired()])
+    type = RadioField(
+        "Rotation Type",
+        choices=[("oxeleven", "oxEleven",), ("jks", "JKS")],
+        validators=[AnyOf(["oxeleven", "jks"])],
+    )
+    oxeleven_url = StringField("oxEleven URL")
+    oxauth_token = PasswordField("oxAuth Token")
