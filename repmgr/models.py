@@ -61,5 +61,6 @@ class KeyRotation(db.Model):
 
     oxeleven_url = db.Column(db.String(255))
 
-    # token used by oxAuth to access oxEleven (encrypted using bcrypt)
-    oxauth_token = db.Column(db.String(255))
+    # token used for accessing oxEleven
+    # TODO: encrypt using bcrypt
+    static_token = db.Column(db.String(255))

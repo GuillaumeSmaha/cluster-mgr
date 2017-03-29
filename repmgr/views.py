@@ -315,7 +315,7 @@ def key_rotation():
         rotation.interval = form.interval.data
         rotation.type = form.type.data
         rotation.oxeleven_url = form.oxeleven_url.data
-        rotation.oxauth_token = form.oxauth_token.data
+        rotation.static_token = form.static_token.data
         db.session.add(rotation)
         db.session.commit()
         return redirect(url_for("key_rotation"))
