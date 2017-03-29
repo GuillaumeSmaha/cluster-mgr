@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% from 'macros.html' import render_radio_field, render_field %}
 {% block content %}
-<h2 class="page-header">static Key Rotation</h2>
+<h2 class="page-header">oxAuth Key Rotation</h2>
 <form action="{{ url_for('key_rotation') }}" method="POST">
     {{ form.csrf_token }}
     <div class="panel panel-default">
