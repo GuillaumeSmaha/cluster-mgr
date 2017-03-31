@@ -64,10 +64,13 @@ class KeyRotation(db.Model):
     # token used for accessing oxEleven
     # note, token is encrypted when we save into database;
     # to get the actual token, we need to decrypt it
-    static_token = db.Column(db.LargeBinary)
+    oxeleven_token = db.Column(db.LargeBinary)
 
     # random key for token encryption
-    static_token_key = db.Column(db.LargeBinary)
+    oxeleven_token_key = db.Column(db.LargeBinary)
 
     # random iv for token encryption
-    static_token_iv = db.Column(db.LargeBinary)
+    oxeleven_token_iv = db.Column(db.LargeBinary)
+
+    # inum appliance, useful for searching oxAuth config in LDAP
+    inum_appliance = db.Column(db.String(255))

@@ -60,4 +60,5 @@ class KeyRotationForm(FlaskForm):
         validators=[AnyOf(["oxeleven", "jks"])],
     )
     oxeleven_url = StringField("oxEleven URL")
-    static_token = PasswordField("Static Token")
+    oxeleven_token = PasswordField("oxEleven Token")
+    inum_appliance = StringField("Inum Appliance", validators=[DataRequired()])

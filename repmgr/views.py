@@ -310,6 +310,7 @@ def key_rotation():
         form.interval.data = rotation.interval
         form.type.data = rotation.type
         form.oxeleven_url.data = rotation.oxeleven_url
+        form.inum_appliance.data = rotation.inum_appliance
 
     if form.validate_on_submit():
         if not rotation:
@@ -318,15 +319,16 @@ def key_rotation():
         rotation.interval = form.interval.data
         rotation.type = form.type.data
         rotation.oxeleven_url = form.oxeleven_url.data
+        rotation.inum_appliance = form.inum_appliance.data
 
         # set the value if token data is not empty
-        if form.static_token.data:
-            rotation.static_token_key = generate_random_key()
-            rotation.static_token_iv = generate_random_iv()
-            rotation.static_token = encrypt_text(
-                b"{}".format(form.static_token.data),
-                rotation.static_token_key,
-                rotation.static_token_iv,
+        if form.oxeleven_token.data:
+            rotation.oxeleven_token_key = generate_random_key()
+            rotation.oxeleven_token_iv = generate_random_iv()
+            rotation.oxeleven_token = encrypt_text(
+                b"{}".format(form.oxeleven_token.data),
+                rotation.oxeleven_token_key,
+                rotation.oxeleven_token_iv,
             )
 
         db.session.add(rotation)

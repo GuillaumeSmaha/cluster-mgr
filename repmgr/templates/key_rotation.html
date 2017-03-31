@@ -45,18 +45,36 @@
                     <p class="help-block">{{ error }}</p>
                 {% endfor %}
             </div>
-            <div class="form-group {{ 'has-error' if form.static_token.errors else '' }}">
+            <div class="form-group {{ 'has-error' if form.oxeleven_token.errors else '' }}">
                 <div class="input-group">
-                    {{ form.static_token.label(class="control-label") }}
+                    {{ form.oxeleven_token.label(class="control-label") }}
                     <p class="help-block">Static token for accessing oxEleven APIs. The value will be used only if oxEleven is selected as rotation type.</p>
-                    {{ form.static_token(class="form-control") }}
+                    {{ form.oxeleven_token(class="form-control") }}
                 </div>
-                {% for error in form.static_token.errors %}
+                {% for error in form.oxeleven_token.errors %}
                     <p class="help-block">{{ error }}</p>
                 {% endfor %}
             </div>
         </div>
     </div>
+    <div class="panel panel-default">
+        <div class="panel-heading">
+            <h3 class="panel-title">LDAP Integration</h3>
+        </div>
+        <div class="panel-body">
+            <div class="form-group {{ 'has-error' if form.inum_appliance.errors else '' }}">
+                <div class="input-group">
+                    {{ form.inum_appliance.label(class="control-label") }}
+                    <p class="help-block">Inum Appliance.</p>
+                    {{ form.inum_appliance(class="form-control") }}
+                </div>
+                {% for error in form.inum_appliance.errors %}
+                    <p class="help-block">{{ error }}</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
     <button type="submit" class="btn btn-primary">Rotate Key</button>
 </form>
 {% endblock %}
