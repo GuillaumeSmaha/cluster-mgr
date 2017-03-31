@@ -10,6 +10,7 @@ class Config(object):
     REDIS_HOST = 'localhost'
     REDIS_PORT = 6379
     REDIS_LOG_DB = 0
+    OX11_PORT = '8190'
 
 
 class ProductionConfig(Config):
@@ -19,7 +20,7 @@ class ProductionConfig(Config):
 
 class DevelopmentConfig(Config):
     DEBUG = True
-    SQLALCHEMY_DATABASE_URI = 'sqlite:////tmp/repmgr.db'
+    SQLALCHEMY_DATABASE_URI = 'sqlite:////home/themonk/tmp/repmgr.db'
     SQLALCHEMY_TRACK_MODIFICATIONS = True
 
 
