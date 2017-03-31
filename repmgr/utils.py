@@ -2,6 +2,12 @@ import re
 import os
 import hashlib
 
+from cryptography.hazmat.primitives.ciphers import Cipher
+from cryptography.hazmat.primitives.ciphers import algorithms
+from cryptography.hazmat.primitives.ciphers import modes
+from cryptography.hazmat.primitives import padding
+from cryptography.hazmat.backends import default_backend
+
 
 def parse_slapdconf(old_conf=None):
     """Parses the slapd.conf file generated during the installation of
@@ -58,3 +64,61 @@ def ldap_encode(password):
     b64encoded = '{0}{1}'.format(sha.digest(), salt).encode('base64').strip()
     encrypted_password = '{{SSHA}}{0}'.format(b64encoded)
     return encrypted_password
+
+
+def generate_random_key(length=32):
+    """Generates random key.
+    """
+    return os.urandom(length)
+
+
+def generate_random_iv(length=8):
+    """Generates random initialization vector.
+    """
+    return os.urandom(length)
+
+
+def encrypt_text(text, key, iv):
+    """Encrypts plain text using Blowfish and CBC.
+
+    Example:
+
+        import os
+
+        # keep the same key and iv for decrypting the text
+        key = os.urandom(32)
+        iv = os.urandom(8)
+        enc_text = encrypt_text("secret-text", key, iv)
+    """
+    cipher = Cipher(algorithms.Blowfish(key), modes.CBC(iv),
+                    backend=default_backend())
+    encryptor = cipher.encryptor()
+
+    # CBC requires padding
+    padder = padding.PKCS7(algorithms.Blowfish.block_size).padder()
+    padded_data = padder.update(text) + padder.finalize()
+
+    # encrypt the text
+    encrypted_text = encryptor.update(padded_data) + encryptor.finalize()
+    return encrypted_text
+
+
+def decrypt_text(encrypted_text, key, iv):
+    """Decrypts encrypted text using Blowfish and CBC.
+
+    Example:
+
+        # use the same key and iv used in encrypting the text
+        text = decrypt_text(enc_text, key, iv)
+    """
+    cipher = Cipher(algorithms.Blowfish(key), modes.CBC(iv),
+                    backend=default_backend())
+    decryptor = cipher.decryptor()
+
+    # CBC requires padding
+    unpadder = padding.PKCS7(algorithms.Blowfish.block_size).unpadder()
+    padded_data = decryptor.update(encrypted_text) + decryptor.finalize()
+
+    # decrypt the encrypted text
+    text = unpadder.update(padded_data) + unpadder.finalize()
+    return text
