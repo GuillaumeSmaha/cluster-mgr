@@ -1,5 +1,6 @@
 import ldap
 import time
+import StringIO
 
 from fabric.api import run, execute, cd, put
 from fabric.contrib.files import exists
@@ -209,26 +210,42 @@ def replicate(self):
     wlogger.log(taskid, 'Replication test Complete.', 'success')
 
 
+def run_command(taskid, command):
+    outlog = StringIO.StringIO()
+    errlog = StringIO.StringIO()
+
+    output = run(command, stdout=outlog, stderr=errlog)
+
+    wlogger.log(taskid, outlog.getvalue(), "debug")
+    if errlog.getvalue():
+        wlogger.log(taskid, errlog.getvalue(), "error")
+
+    return output
+
+
 def generate_slapd(taskid, conffile):
-    wlogger.log(taskid, "Copying slapd.conf file to remote server")
-    log = "> "+str(put(conffile, '/opt/symas/etc/openldap/slapd.conf'))
-    wlogger.log(taskid, log)
-    status = run('service solserver status')
-    wlogger.log(taskid, "Checking Status of solserver\n> "+status)
+    wlogger.log(taskid, "\n===>  Copying slapd.conf file to remote server")
+    out = put(conffile, '/opt/symas/etc/openldap/slapd.conf')
+    if out.failed:
+        wlogger.log(taskid, "Failed to copy the slapd.conf file", "error")
+
+    wlogger.log(taskid, "\n===>  Checking status of LDAP server")
+    status = run_command(taskid, 'service solserver status')
+
     if 'is running' in status:
-        log = run('service solserver stop')
-        wlogger.log(taskid, "{0}\n> {1}".format(log.command, log))
+        wlogger.log("\n===>  Stopping LDAP Server")
+        run_command(taskid, 'service solserver stop')
+
     with cd('/opt/symas/etc/openldap/'):
-        wlogger.log(taskid, "Generating slad.d Online Configuration")
-        run('rm -rf slapd.d')
-        run('mkdir slapd.d')
-        log = run('/opt/symas/bin/slaptest -f slapd.conf -F slapd.d')
-        wlogger.log(taskid, "{0}\n> {1}".format(log.command, log))
-    wlogger.log(taskid, "Starting solserver")
-    log = run('service solserver start')
-    wlogger.log(taskid, "{0}\n> {1}".format(log.real_command, log))
+        wlogger.log(taskid, "\n===>  Generating slad.d Online Configuration")
+        run_command(taskid, 'rm -rf slapd.d')
+        run_command(taskid, 'mkdir slapd.d')
+        run_command(taskid, '/opt/symas/bin/slaptest -f slapd.conf -F slapd.d')
+
+    wlogger.log(taskid, "\n===>  Starting LDAP server")
+    log = run_command(taskid, 'service solserver start')
     if 'failed' in log:
-        wlogger.log(taskid, "Debugging slapd...")
+        wlogger.log(taskid, "\n===>  Debugging slapd...")
         log = run("/opt/symas/lib64/slapd -d 1 "
                   "-f /opt/symas/etc/openldap/slapd.conf")
         wlogger.log(taskid, "{0}\n> {1}".format(log.real_command, log))
