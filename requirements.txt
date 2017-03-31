@@ -7,3 +7,4 @@ celery==4.0.2
 Fabric==1.13.1
 Flask-SQLAlchemy==2.2
 redis==2.10.5
+cryptography==1.8.1
