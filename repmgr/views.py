@@ -10,6 +10,9 @@ from .forms import NewProviderForm, NewConsumerForm, AppConfigForm, \
     NewMirrorModeForm, KeyRotationForm
 from .tasks import initialize_provider, replicate, setup_server
 from .utils import ldap_encode
+from .utils import encrypt_text
+from .utils import generate_random_key
+from .utils import generate_random_iv
 
 
 @app.route('/')
@@ -28,9 +31,9 @@ def app_configuration():
     form = AppConfigForm()
     config = AppConfiguration.query.get(1)
     if request.method == 'GET' and config:
-        form.replication_dn.data = config.replication_dn.replace(
-                "cn=", "").replace(",o=gluu", "") if config.replication_dn \
-                        else ""
+        form.replication_dn.data = ""
+        if config.replication_dn:
+            config.replication_dn.replace("cn=", "").replace(",o=gluu", "")
         form.replication_pw.data = config.replication_pw
         form.certificate_folder.data = config.certificate_folder
     if form.validate_on_submit():
@@ -203,9 +206,9 @@ def new_mirrormode():
 
         conf = ''
         confile = os.path.join(
-                app.root_path, "templates", "slapd", "provider.conf")
+            app.root_path, "templates", "slapd", "provider.conf")
         mirrorfile = os.path.join(
-                app.root_path, "templates", "slapd", "mirror.conf")
+            app.root_path, "templates", "slapd", "mirror.conf")
         with open(confile, 'r') as c:
             conf = c.read()
         with open(mirrorfile, 'r') as m:
@@ -236,9 +239,9 @@ def mirror(sid1, sid2):
     s2 = LDAPServer.query.get(sid2)
 
     file1 = os.path.join(
-            app.root_path, "conffiles", "{}_slapd.conf".format(sid1))
+        app.root_path, "conffiles", "{}_slapd.conf".format(sid1))
     file2 = os.path.join(
-            app.root_path, "conffiles", "{}_slapd.conf".format(sid2))
+        app.root_path, "conffiles", "{}_slapd.conf".format(sid2))
 
     template = request.form.get('conf')
     generate_mirror_conf(file1, template, s1, s2)
@@ -315,7 +318,17 @@ def key_rotation():
         rotation.interval = form.interval.data
         rotation.type = form.type.data
         rotation.oxeleven_url = form.oxeleven_url.data
-        rotation.static_token = form.static_token.data
+
+        # set the value if token data is not empty
+        if form.static_token.data:
+            rotation.static_token_key = generate_random_key()
+            rotation.static_token_iv = generate_random_iv()
+            rotation.static_token = encrypt_text(
+                b"{}".format(form.static_token.data),
+                rotation.static_token_key,
+                rotation.static_token_iv,
+            )
+
         db.session.add(rotation)
         db.session.commit()
         return redirect(url_for("key_rotation"))

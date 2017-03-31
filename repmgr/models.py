@@ -62,5 +62,12 @@ class KeyRotation(db.Model):
     oxeleven_url = db.Column(db.String(255))
 
     # token used for accessing oxEleven
-    # TODO: encrypt using bcrypt
-    static_token = db.Column(db.String(255))
+    # note, token is encrypted when we save into database;
+    # to get the actual token, we need to decrypt it
+    static_token = db.Column(db.LargeBinary)
+
+    # random key for token encryption
+    static_token_key = db.Column(db.LargeBinary)
+
+    # random iv for token encryption
+    static_token_iv = db.Column(db.LargeBinary)

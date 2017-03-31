@@ -110,8 +110,6 @@ def decrypt_text(encrypted_text, key, iv):
 
         # use the same key and iv used in encrypting the text
         text = decrypt_text(enc_text, key, iv)
-
-
     """
     cipher = Cipher(algorithms.Blowfish(key), modes.CBC(iv),
                     backend=default_backend())
