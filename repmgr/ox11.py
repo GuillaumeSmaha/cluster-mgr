@@ -8,11 +8,19 @@ def generate_key(ox11server='http://localhost:8190', signature_algorithm='RS512'
     payload = {'signatureAlgorithm': signature_algorithm, 'expirationTime': expiration_time}
     headers = {'Authorization': 'Bearer {}'.format(token)}
     r = requests.post(url, data=payload, headers=headers, verify=False)
-    return r.json()
+    try:
+        out = r.json()
+    except:
+        out = {}
+    return r.status_code, out
 
 def delete_key(ox11server='http://localhost:8190', kid='d-u-m-m-y', token='d-u-m-m-y'):
     url = ox11server + DELETE_KEY_ENDPOINT
     payload = {'kid': kid}
     headers = {'Authorization': 'Bearer {}'.format(token)}
     r = requests.post(url, data=payload, headers=headers, verify=False)
-    return r.json()
+    try:
+        out = r.json()
+    except:
+        out = {}
+    return r.status_code, out
