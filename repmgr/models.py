@@ -72,5 +72,8 @@ class KeyRotation(db.Model):
     # random iv for token encryption
     oxeleven_token_iv = db.Column(db.LargeBinary)
 
+    # pubkey ID
+    oxeleven_kid = db.Column(db.String(255))
+
     # inum appliance, useful for searching oxAuth config in LDAP
     inum_appliance = db.Column(db.String(255))
