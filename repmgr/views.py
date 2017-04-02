@@ -11,6 +11,7 @@ from .forms import NewProviderForm, NewConsumerForm, AppConfigForm, \
 from .tasks import initialize_provider, replicate, setup_server
 from .utils import ldap_encode
 from .utils import encrypt_text
+from .utils import decrypt_text
 from .utils import generate_random_key
 from .utils import generate_random_iv
 
@@ -303,35 +304,34 @@ def configure_server(server_id):
 
 @app.route("/key_rotation", methods=["GET", "POST"])
 def key_rotation():
-    rotation = KeyRotation.query.first()
+    kr = KeyRotation.query.first()
     form = KeyRotationForm()
 
-    if request.method == "GET" and rotation is not None:
-        form.interval.data = rotation.interval
-        form.type.data = rotation.type
-        form.oxeleven_url.data = rotation.oxeleven_url
-        form.inum_appliance.data = rotation.inum_appliance
+    if request.method == "GET" and kr is not None:
+        form.interval.data = kr.interval
+        form.type.data = kr.type
+        form.oxeleven_url.data = kr.oxeleven_url
+        form.oxeleven_token.data = decrypt_text(
+            kr.oxeleven_token, kr.oxeleven_token_key, kr.oxeleven_token_iv,
+        )
+        form.inum_appliance.data = kr.inum_appliance
 
     if form.validate_on_submit():
-        if not rotation:
-            rotation = KeyRotation()
+        if not kr:
+            kr = KeyRotation()
 
-        rotation.interval = form.interval.data
-        rotation.type = form.type.data
-        rotation.oxeleven_url = form.oxeleven_url.data
-        rotation.inum_appliance = form.inum_appliance.data
-
-        # set the value if token data is not empty
-        if form.oxeleven_token.data:
-            rotation.oxeleven_token_key = generate_random_key()
-            rotation.oxeleven_token_iv = generate_random_iv()
-            rotation.oxeleven_token = encrypt_text(
-                b"{}".format(form.oxeleven_token.data),
-                rotation.oxeleven_token_key,
-                rotation.oxeleven_token_iv,
-            )
-
-        db.session.add(rotation)
+        kr.interval = form.interval.data
+        kr.type = form.type.data
+        kr.oxeleven_url = form.oxeleven_url.data
+        kr.inum_appliance = form.inum_appliance.data
+        kr.oxeleven_token_key = generate_random_key()
+        kr.oxeleven_token_iv = generate_random_iv()
+        kr.oxeleven_token = encrypt_text(
+            b"{}".format(form.oxeleven_token.data),
+            kr.oxeleven_token_key,
+            kr.oxeleven_token_iv,
+        )
+        db.session.add(kr)
         db.session.commit()
         return redirect(url_for("key_rotation"))
-    return render_template("key_rotation.html", form=form, rotation=rotation)
+    return render_template("key_rotation.html", form=form, rotation=kr)
