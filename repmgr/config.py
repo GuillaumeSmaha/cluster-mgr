@@ -20,7 +20,7 @@ class ProductionConfig(Config):
 
 class DevelopmentConfig(Config):
     DEBUG = True
-    SQLALCHEMY_DATABASE_URI = 'sqlite:////home/themonk/tmp/repmgr.db'
+    SQLALCHEMY_DATABASE_URI = 'sqlite:////tmp/repmgr.db'
     SQLALCHEMY_TRACK_MODIFICATIONS = True
 
 
