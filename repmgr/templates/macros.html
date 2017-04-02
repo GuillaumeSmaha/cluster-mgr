@@ -52,11 +52,11 @@
     Example usage:
         {{ macros.render_radio_field(form.answers) }}
  #}
-{% macro render_radio_field(field, checked_value="") -%}
+{% macro render_radio_field(field) -%}
     {% for value, label, _ in field.iter_choices() %}
         <div class="radio">
             <label>
-                <input type="radio" name="{{ field.id }}" id="{{ field.id }}" value="{{ value }}" {{ "checked" if value == checked_value else "" }}>{{ label }}
+                <input type="radio" name="{{ field.id }}" id="{{ field.id }}" value="{{ value }}">{{ label }}
             </label>
         </div>
     {% endfor %}
