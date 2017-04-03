@@ -11,7 +11,6 @@ from .forms import NewProviderForm, NewConsumerForm, AppConfigForm, \
 from .tasks import initialize_provider, replicate, setup_server
 from .utils import ldap_encode
 from .utils import encrypt_text
-from .utils import decrypt_text
 from .utils import generate_random_key
 from .utils import generate_random_iv
 
@@ -311,9 +310,6 @@ def key_rotation():
         form.interval.data = kr.interval
         form.type.data = kr.type
         form.oxeleven_url.data = kr.oxeleven_url
-        form.oxeleven_token.data = decrypt_text(
-            kr.oxeleven_token, kr.oxeleven_token_key, kr.oxeleven_token_iv,
-        )
         form.inum_appliance.data = kr.inum_appliance
 
     if form.validate_on_submit():
@@ -333,5 +329,9 @@ def key_rotation():
         )
         db.session.add(kr)
         db.session.commit()
+
+        # TODO: add as periodic task
+        # from .tasks import rotate_pub_keys
+        # rotate_pub_keys.delay()
         return redirect(url_for("key_rotation"))
     return render_template("key_rotation.html", form=form, rotation=kr)

@@ -1,13 +1,18 @@
 import ldap
 import time
 import StringIO
+import json
 
+import requests
 from fabric.api import run, execute, cd, put
 from fabric.contrib.files import exists
 from fabric.context_managers import settings
 
 from .application import celery, db, wlogger
-from .models import LDAPServer, AppConfiguration
+from .models import LDAPServer, AppConfiguration, KeyRotation
+from .ldaplib import ldap_conn, search_from_ldap
+from .utils import decrypt_text
+from .ox11 import generate_key, delete_key
 
 ldap.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_NEVER)
 
@@ -19,12 +24,12 @@ def initialize_provider(self, server_id):
     appconfig = AppConfiguration.query.get(1)
     dn = appconfig.replication_dn
     replication_user = [
-            ('objectclass', [r'person']),
-            ('cn', [r'{}'.format(
-                dn.replace("cn=", "").replace(",o=gluu", ""))]),
-            ('sn', [r'gluu']),
-            ('userpassword', [str(appconfig.replication_pw)])
-            ]
+        ('objectclass', [r'person']),
+        ('cn', [r'{}'.format(
+            dn.replace("cn=", "").replace(",o=gluu", ""))]),
+        ('sn', [r'gluu']),
+        ('userpassword', [str(appconfig.replication_pw)])
+        ]
 
     # Step 1: Connection
     wlogger.log(self.request.id, 'Connecting to {}'.format(server.hostname))
@@ -94,10 +99,10 @@ def replicate(self):
     taskid = self.request.id
     dn = 'cn=testentry,o=gluu'
     replication_user = [
-            ('objectclass', ['person']),
-            ('cn', ['testentry']),
-            ('sn', ['gluu']),
-            ]
+        ('objectclass', ['person']),
+        ('cn', ['testentry']),
+        ('sn', ['gluu']),
+        ]
 
     wlogger.log(taskid, 'Listing all providers')
     providers = LDAPServer.query.filter_by(role="provider").all()
@@ -131,7 +136,7 @@ def replicate(self):
         # get list of all the consumers
         for consumer in consumers:
             wlogger.log(taskid, 'Verifying data in consumers: {} of {}'.format(
-                    consumers.index(consumer)+1, len(consumers)))
+                consumers.index(consumer)+1, len(consumers)))
             con = ldap.initialize('ldap://{}:{}'.format(consumer.hostname,
                                                         consumer.port))
             try:
@@ -312,6 +317,99 @@ def check_requirements(self, server_id):
         # Check certificates
         execute(check_certificates, self.request.id, server, hosts=[host])
         # Check LDAP data directories
+
+
+def modify_oxauth_config(kr, pub_keys):
+    server = LDAPServer.query.filter_by(role="provider").first()
+
+    if not pub_keys:
+        return
+
+    with ldap_conn(server.hostname, server.port, "cn=directory manager,o=gluu",
+                   server.admin_pw, server.starttls) as conn:
+        # base DN for oxAuth config
+        oxauth_base = ",".join([
+            "ou=oxauth",
+            "ou=configuration",
+            "inum={}".format(kr.inum_appliance),
+            "ou=appliances",
+            "o=gluu",
+        ])
+        dn, attrs = search_from_ldap(conn, oxauth_base)
+
+        # search failed due to missing entry
+        if not dn:
+            return
+
+        # oxRevision is increased to mark update
+        ox_rev = str(int(attrs["oxRevision"][0]) + 1)
+
+        # update public keys if necessary
+        keys_conf = json.loads(attrs["oxAuthConfWebKeys"][0])
+        keys_conf["keys"] = [pub_keys]
+        serialized_keys_conf = json.dumps(keys_conf)
+
+        dyn_conf = json.loads(attrs["oxAuthConfDynamic"][0])
+        dyn_conf.update({
+            "oxElevenGenerateKeyEndpoint": "{}/oxeleven/rest/oxeleven/generateKey".format(kr.oxeleven_url),  # noqa
+            "oxElevenSignEndpoint": "{}/oxeleven/rest/oxeleven/sign".format(kr.oxeleven_url),  # noqa
+            "oxElevenVerifySignatureEndpoint": "{}/oxeleven/rest/oxeleven/verifySignature".format(kr.oxeleven_url),  # noqa
+            "oxElevenDeleteKeyEndpoint": "{}/oxeleven/rest/oxeleven/deleteKey".format(kr.oxeleven_url),  # noqa
+            "oxElevenJwksEndpoint": "{}/oxeleven/rest/oxeleven/jwks".format(kr.oxeleven_url),  # noqa
+            "oxElevenTestModeToken": decrypt_text(kr.oxeleven_token, kr.oxeleven_token_key, kr.oxeleven_token_iv),  # noqa
+            "webKeysStorage": "pkcs11" if kr.type == "oxeleven" else "keystore",  # noqa
+            "keyRegenerationEnabled": False,  # always set to False
+            "keyRegenerationInterval": kr.interval * 24,
+        })
+        serialized_dyn_conf = json.dumps(dyn_conf)
+
+        # list of attributes need to be updated
+        modlist = [
+            (ldap.MOD_REPLACE, "oxRevision", ox_rev),
+            (ldap.MOD_REPLACE, "oxAuthConfWebKeys", serialized_keys_conf),
+            (ldap.MOD_REPLACE, "oxAuthConfDynamic", serialized_dyn_conf),
+        ]
+
+        # update the attributes
+        conn.modify_s(dn, modlist)
+        return True
+
+
+@celery.task(bind=True)
+def rotate_pub_keys(clr_app):
+    kr = KeyRotation.query.first()
+    pub_keys = {}
+
+    if not kr:
+        print "unable to find key rotation data from database"
+        return
+
+    if kr.type == "oxeleven":
+        token = decrypt_text(kr.oxeleven_token, kr.oxeleven_token_key,
+                             kr.oxeleven_token_iv)
+        kid = kr.oxeleven_kid
+
+        try:
+            # delete old keys first
+            status_code, out = delete_key(kr.oxeleven_url, kid, token)
+            if status_code == 200 and out["deleted"]:
+                kr.oxeleven_kid = ""
+
+            # obtain new keys
+            status_code, out = generate_key(kr.oxeleven_url, token=token)
+            if status_code == 200:
+                kr.oxeleven_kid = out["kid"]
+                pub_keys = out
+        except requests.exceptions.ConnectionError:
+            print "unable to establish connection to oxEleven"
+    else:
+        # TODO: get pub keys from KeyGenerator (java jar)
+        pass
+
+    # update LDAP entry
+    if pub_keys and modify_oxauth_config(kr, pub_keys):
+        db.session.add(kr)
+        db.session.commit()
 
 
 # @celery.on_after_configure.connect
