@@ -94,3 +94,4 @@ TODO
 repmgr/conffiles/*.conf
 
 celerybeat-schedule.*
+*.db

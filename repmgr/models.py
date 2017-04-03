@@ -91,3 +91,12 @@ class KeyRotation(db.Model):
     def next_rotation_at(self):
         # when will the keys supposed to be rotated
         return self.rotated_at + timedelta(days=self.interval)
+
+
+class OxauthServer(db.Model):
+    __tablename__ = "oxauth_server"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # hostname for SSH access
+    hostname = db.Column(db.String(255))

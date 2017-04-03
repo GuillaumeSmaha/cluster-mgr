@@ -5,7 +5,7 @@ from flask import render_template, redirect, url_for, flash, request, jsonify,\
 from celery.result import AsyncResult
 
 from .application import app, db, celery, wlogger
-from .models import LDAPServer, AppConfiguration, KeyRotation
+from .models import LDAPServer, AppConfiguration, KeyRotation, OxauthServer
 from .forms import NewProviderForm, NewConsumerForm, AppConfigForm, \
     NewMirrorModeForm, KeyRotationForm
 from .tasks import initialize_provider, replicate, setup_server, \
@@ -306,6 +306,7 @@ def configure_server(server_id):
 def key_rotation():
     kr = KeyRotation.query.first()
     form = KeyRotationForm()
+    oxauth_servers = [server for server in OxauthServer.query]
 
     if request.method == "GET" and kr is not None:
         form.interval.data = kr.interval
@@ -333,4 +334,43 @@ def key_rotation():
         # rotate the keys immediately
         rotate_pub_keys.delay()
         return redirect(url_for("key_rotation"))
-    return render_template("key_rotation.html", form=form, rotation=kr)
+    return render_template("key_rotation.html",
+                           form=form,
+                           rotation=kr,
+                           oxauth_servers=oxauth_servers)
+
+
+@app.route("/api/oxauth_server", methods=["GET", "POST"])
+def oxauth_server():
+    if request.method == "POST":
+        hostname = request.form.get("hostname")
+        if not hostname:
+            return jsonify({
+                "status": 400,
+                "message": "Invalid data",
+                "params": "hostname can't be empty",
+            }), 400
+
+        server = OxauthServer()
+        server.hostname = hostname
+        db.session.add(server)
+        db.session.commit()
+        return jsonify({
+            "id": server.id,
+            "hostname": server.hostname,
+        }), 201
+
+    servers = [{
+        "id": srv.id,
+        "hostname": srv.hostname,
+    } for srv in OxauthServer.query]
+    return jsonify(servers)
+
+
+@app.route("/api/oxauth_server/<id>", methods=["POST"])
+def delete_oxauth_server(id):
+    server = OxauthServer.query.get(id)
+    if server:
+        db.session.delete(server)
+        db.session.commit()
+    return jsonify({}), 204

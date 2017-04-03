@@ -30,15 +30,61 @@
             </div>
         </div>
     </div>
-    <div class="panel panel-default">
+
+    <div class="panel panel-default hidden" id="oxeleven-panel">
         <div class="panel-heading">
-            <h3 class="panel-title">oxEleven Integration</h3>
+            <h3 class="panel-title">oxEleven Server</h3>
         </div>
         <div class="panel-body">
             {{ render_field(form.oxeleven_url, help="Base URL of oxEleven app.") }}
             {{ render_field(form.oxeleven_token, help="Auth token required for accessing oxEleven API.") }}
         </div>
     </div>
+
+    <div class="panel panel-default hidden" id="oxauth-panel">
+        <div class="panel-heading">
+            <h3 class="panel-title">oxAuth Servers</h3>
+        </div>
+        <div class="panel-body">
+            <div class="form-group">
+                <label class="control-label" for="">
+                    <label for="">oxAuth Server Hostname</label>
+                </label>
+                <input id="add-oxauth-hostname" type="text" name="hostname" class="form-control">
+            </div>
+            <a href="javascript:void(0)" class="btn btn-info" id="add-oxauth">Add oxAuth server</a>
+
+            <div class="form-group" id="oxauth-servers-container">
+                {% if oxauth_servers %}
+                <p>Available oxAuth servers</p>
+                <div class="input-group">
+                    <table class="table table-bordered" id="oxauth-servers">
+                        <thead>
+                            <tr>
+                                <th>Hostname</th>
+                                <th>Remove?</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for oxauth in oxauth_servers %}
+                            <tr id="oxauth-server-{{ oxauth.id }}">
+                                <td>{{ oxauth.hostname }}</td>
+                                <td>
+                                    <label class="custom-control custom-checkbox">
+                                        <input type="checkbox" class="custom-control-input" data="{{ oxauth.id }}">
+                                    </label>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    <a href="javascript:void(0)" class="btn btn-danger" id="remove-oxauth">Remove selected</a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
     <div class="panel panel-default">
         <div class="panel-heading">
             <h3 class="panel-title">LDAP Integration</h3>
@@ -49,4 +95,8 @@
     </div>
     <button type="submit" class="btn btn-primary">Rotate Key</button>
 </form>
+{% endblock %}
+
+{% block js%}
+    <script src="{{ url_for('static', filename='js/key-rotation.js') }}"></script>
 {% endblock %}

@@ -10,7 +10,7 @@ from fabric.contrib.files import exists
 from fabric.context_managers import settings
 
 from .application import celery, db, wlogger
-from .models import LDAPServer, AppConfiguration, KeyRotation
+from .models import LDAPServer, AppConfiguration, KeyRotation, OxauthServer
 from .ldaplib import ldap_conn, search_from_ldap
 from .utils import decrypt_text
 from .ox11 import generate_key, delete_key
@@ -417,7 +417,7 @@ def _rotate_keys(kr):
             print "unable to establish connection to oxEleven; skipping task"
     else:
         # TODO: get pub keys from KeyGenerator (java jar)
-        pass
+        print "JKS is currently not supported"
 
     # update LDAP entry
     if pub_keys and modify_oxauth_config(kr, pub_keys):
@@ -425,6 +425,11 @@ def _rotate_keys(kr):
         kr.rotated_at = datetime.utcnow()
         db.session.add(kr)
         db.session.commit()
+
+        # TODO: copy jks to all oxAuth servers
+        if kr.type == "jks":
+            for server in OxauthServer.query:
+                pass
 
 
 # @celery.on_after_configure.connect
