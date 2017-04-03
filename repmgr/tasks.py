@@ -312,3 +312,23 @@ def check_requirements(self, server_id):
         # Check certificates
         execute(check_certificates, self.request.id, server, hosts=[host])
         # Check LDAP data directories
+
+
+# @celery.on_after_configure.connect
+# def setup_periodic_tasks(sender, **kwargs):
+#     # Calls test('hello') every 2 seconds.
+#     sender.add_periodic_task(2.0, add.s(600,66), name='add every 2')
+
+@celery.task(bind=True)
+def add(self, x, y):
+    r = x + y
+    print "task arguments: {x}, {y}".format(x=x, y=y)
+    print "task result: {r}".format(r=r)
+    return r
+
+# @celery.task
+# def add(x, y):
+#     r = x + y
+#     print "task arguments: {x}, {y}".format(x=x, y=y)
+#     print "task result: {r}".format(r=r)
+#     return r

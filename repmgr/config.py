@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 class Config(object):
     DEBUG = False
     TESTING = False
@@ -11,6 +13,14 @@ class Config(object):
     REDIS_PORT = 6379
     REDIS_LOG_DB = 0
     OX11_PORT = '8190'
+    CELERYBEAT_SCHEDULE = {
+        'add-every-5-seconds': {
+            'task': 'repmgr.tasks.add', # notice that the complete name is needed
+            'schedule': timedelta(seconds=5),
+            'args': (600, 66)
+        },
+    }
+    #CELERY_TIMEZONE = 'BST'
 
 
 class ProductionConfig(Config):
