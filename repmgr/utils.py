@@ -1,12 +1,17 @@
 import re
 import os
 import hashlib
+import string
+import random
 
 from cryptography.hazmat.primitives.ciphers import Cipher
 from cryptography.hazmat.primitives.ciphers import algorithms
 from cryptography.hazmat.primitives.ciphers import modes
 from cryptography.hazmat.primitives import padding
 from cryptography.hazmat.backends import default_backend
+
+
+DEFAULT_CHARSET = string.ascii_uppercase + string.digits + string.lowercase
 
 
 def parse_slapdconf(old_conf=None):
@@ -122,3 +127,7 @@ def decrypt_text(encrypted_text, key, iv):
     # decrypt the encrypted text
     text = unpadder.update(padded_data) + unpadder.finalize()
     return text
+
+
+def random_chars(size=12, chars=DEFAULT_CHARSET):
+    return ''.join(random.choice(chars) for _ in range(size))

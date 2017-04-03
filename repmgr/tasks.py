@@ -14,6 +14,7 @@ from .models import LDAPServer, AppConfiguration, KeyRotation, OxauthServer
 from .ldaplib import ldap_conn, search_from_ldap
 from .utils import decrypt_text
 from .ox11 import generate_key, delete_key
+from .keygen import generate_jks, JKS_PATH
 
 ldap.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_NEVER)
 
@@ -320,9 +321,10 @@ def check_requirements(self, server_id):
         # Check LDAP data directories
 
 
-def modify_oxauth_config(kr, pub_keys):
+def modify_oxauth_config(kr, pub_keys=None, openid_jks_pass=""):
     server = LDAPServer.query.filter_by(role="provider").first()
 
+    pub_keys = pub_keys or []
     if not pub_keys:
         return
 
@@ -347,21 +349,31 @@ def modify_oxauth_config(kr, pub_keys):
 
         # update public keys if necessary
         keys_conf = json.loads(attrs["oxAuthConfWebKeys"][0])
-        keys_conf["keys"] = [pub_keys]
+        keys_conf["keys"] = pub_keys
         serialized_keys_conf = json.dumps(keys_conf)
 
         dyn_conf = json.loads(attrs["oxAuthConfDynamic"][0])
         dyn_conf.update({
-            "oxElevenGenerateKeyEndpoint": "{}/oxeleven/rest/oxeleven/generateKey".format(kr.oxeleven_url),  # noqa
-            "oxElevenSignEndpoint": "{}/oxeleven/rest/oxeleven/sign".format(kr.oxeleven_url),  # noqa
-            "oxElevenVerifySignatureEndpoint": "{}/oxeleven/rest/oxeleven/verifySignature".format(kr.oxeleven_url),  # noqa
-            "oxElevenDeleteKeyEndpoint": "{}/oxeleven/rest/oxeleven/deleteKey".format(kr.oxeleven_url),  # noqa
-            "oxElevenJwksEndpoint": "{}/oxeleven/rest/oxeleven/jwks".format(kr.oxeleven_url),  # noqa
-            "oxElevenTestModeToken": decrypt_text(kr.oxeleven_token, kr.oxeleven_token_key, kr.oxeleven_token_iv),  # noqa
-            "webKeysStorage": "pkcs11" if kr.type == "oxeleven" else "keystore",  # noqa
             "keyRegenerationEnabled": False,  # always set to False
             "keyRegenerationInterval": kr.interval * 24,
+            "defaultSignatureAlgorithm": "RS512",
         })
+
+        if kr.type == "oxeleven":
+            dyn_conf.update({
+                "oxElevenGenerateKeyEndpoint": "{}/oxeleven/rest/oxeleven/generateKey".format(kr.oxeleven_url),  # noqa
+                "oxElevenSignEndpoint": "{}/oxeleven/rest/oxeleven/sign".format(kr.oxeleven_url),  # noqa
+                "oxElevenVerifySignatureEndpoint": "{}/oxeleven/rest/oxeleven/verifySignature".format(kr.oxeleven_url),  # noqa
+                "oxElevenDeleteKeyEndpoint": "{}/oxeleven/rest/oxeleven/deleteKey".format(kr.oxeleven_url),  # noqa
+                "oxElevenJwksEndpoint": "{}/oxeleven/rest/oxeleven/jwks".format(kr.oxeleven_url),  # noqa
+                "oxElevenTestModeToken": decrypt_text(kr.oxeleven_token, kr.oxeleven_token_key, kr.oxeleven_token_iv),  # noqa
+                "webKeysStorage": "pkcs11",
+            })
+        else:
+            dyn_conf.update({
+                "webKeysStorage": "keystore",
+                "keyStoreSecret": openid_jks_pass,
+            })
         serialized_dyn_conf = json.dumps(dyn_conf)
 
         # list of attributes need to be updated
@@ -389,7 +401,10 @@ def rotate_pub_keys(t):
 
 
 def _rotate_keys(kr):
-    pub_keys = {}
+    from .utils import random_chars
+
+    pub_keys = []
+    openid_jks_pass = random_chars()
 
     if kr.type == "oxeleven":
         token = decrypt_text(kr.oxeleven_token, kr.oxeleven_token_key,
@@ -410,26 +425,39 @@ def _rotate_keys(kr):
             status_code, out = generate_key(kr.oxeleven_url, token=token)
             if status_code == 200:
                 kr.oxeleven_kid = out["kid"]
-                pub_keys = out
+                pub_keys = [out]
             elif status_code == 401:
                 print "insufficient access to call oxEleven API"
         except requests.exceptions.ConnectionError:
             print "unable to establish connection to oxEleven; skipping task"
     else:
         # TODO: get pub keys from KeyGenerator (java jar)
-        print "JKS is currently not supported"
+        out, err, retcode = generate_jks(openid_jks_pass)
+        if retcode == 0:
+            json_out = json.loads(out)
+            pub_keys = json_out["keys"]
 
     # update LDAP entry
-    if pub_keys and modify_oxauth_config(kr, pub_keys):
+    if pub_keys and modify_oxauth_config(kr, pub_keys, openid_jks_pass):
         print "pub keys has been updated"
         kr.rotated_at = datetime.utcnow()
         db.session.add(kr)
         db.session.commit()
 
-        # TODO: copy jks to all oxAuth servers
         if kr.type == "jks":
+            def _copy_jks(path, hostname):
+                out = put(path, '/etc/gluu/conf/oxauth-keys.jks')
+                if out.failed:
+                    print "unable to copy JKS file to " \
+                        "oxAuth server {}".format(hostname)
+                else:
+                    print "JKS file has been copied " \
+                        "to {}".format(hostname)
+
             for server in OxauthServer.query:
-                pass
+                host = "root@{}".format(server.hostname)
+                with settings(warn_only=True):
+                    execute(_copy_jks, JKS_PATH, server.hostname, hosts=[host])
 
 
 # @celery.on_after_configure.connect
