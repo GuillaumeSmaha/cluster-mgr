@@ -8,7 +8,8 @@ from .application import app, db, celery, wlogger
 from .models import LDAPServer, AppConfiguration, KeyRotation
 from .forms import NewProviderForm, NewConsumerForm, AppConfigForm, \
     NewMirrorModeForm, KeyRotationForm
-from .tasks import initialize_provider, replicate, setup_server
+from .tasks import initialize_provider, replicate, setup_server, \
+    rotate_pub_keys
 from .utils import ldap_encode
 from .utils import encrypt_text
 from .utils import generate_random_key
@@ -329,9 +330,7 @@ def key_rotation():
         )
         db.session.add(kr)
         db.session.commit()
-
-        # TODO: add as periodic task
-        # from .tasks import rotate_pub_keys
-        # rotate_pub_keys.delay()
+        # rotate the keys immediately
+        rotate_pub_keys.delay()
         return redirect(url_for("key_rotation"))
     return render_template("key_rotation.html", form=form, rotation=kr)

@@ -1,3 +1,6 @@
+from datetime import datetime
+from datetime import timedelta
+
 from .application import db
 
 from sqlalchemy.orm import relationship, backref
@@ -77,3 +80,14 @@ class KeyRotation(db.Model):
 
     # inum appliance, useful for searching oxAuth config in LDAP
     inum_appliance = db.Column(db.String(255))
+
+    def should_rotate(self):
+        # determine whether we need to rotate the key
+        if not self.rotated_at:
+            return True
+        return datetime.utcnow() > self.next_rotation_at
+
+    @property
+    def next_rotation_at(self):
+        # when will the keys supposed to be rotated
+        return self.rotated_at + timedelta(days=self.interval)

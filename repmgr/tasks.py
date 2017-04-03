@@ -2,6 +2,7 @@ import ldap
 import time
 import StringIO
 import json
+from datetime import datetime
 
 import requests
 from fabric.api import run, execute, cd, put
@@ -376,13 +377,19 @@ def modify_oxauth_config(kr, pub_keys):
 
 
 @celery.task(bind=True)
-def rotate_pub_keys(clr_app):
+def rotate_pub_keys(t):
     kr = KeyRotation.query.first()
-    pub_keys = {}
 
     if not kr:
-        print "unable to find key rotation data from database"
+        print "unable to find key rotation data from database; skipping task"
         return
+
+    # do the key rotation background task
+    _rotate_keys(kr)
+
+
+def _rotate_keys(kr):
+    pub_keys = {}
 
     if kr.type == "oxeleven":
         token = decrypt_text(kr.oxeleven_token, kr.oxeleven_token_key,
@@ -391,23 +398,31 @@ def rotate_pub_keys(clr_app):
 
         try:
             # delete old keys first
+            print "deleting old keys"
             status_code, out = delete_key(kr.oxeleven_url, kid, token)
             if status_code == 200 and out["deleted"]:
                 kr.oxeleven_kid = ""
+            elif status_code == 401:
+                print "insufficient access to call oxEleven API"
 
             # obtain new keys
+            print "obtaining new keys"
             status_code, out = generate_key(kr.oxeleven_url, token=token)
             if status_code == 200:
                 kr.oxeleven_kid = out["kid"]
                 pub_keys = out
+            elif status_code == 401:
+                print "insufficient access to call oxEleven API"
         except requests.exceptions.ConnectionError:
-            print "unable to establish connection to oxEleven"
+            print "unable to establish connection to oxEleven; skipping task"
     else:
         # TODO: get pub keys from KeyGenerator (java jar)
         pass
 
     # update LDAP entry
     if pub_keys and modify_oxauth_config(kr, pub_keys):
+        print "pub keys has been updated"
+        kr.rotated_at = datetime.utcnow()
         db.session.add(kr)
         db.session.commit()
 
@@ -430,3 +445,20 @@ def add(self, x, y):
 #     print "task arguments: {x}, {y}".format(x=x, y=y)
 #     print "task result: {r}".format(r=r)
 #     return r
+
+
+@celery.task(bind=True)
+def schedule_key_rotation(t):
+    kr = KeyRotation.query.first()
+
+    if not kr:
+        print "unable to find key rotation data from database; skipping task"
+        return
+
+    if not kr.should_rotate():
+        print "key rotation task will be executed " \
+              "approximately at {} UTC".format(kr.next_rotation_at)
+        return
+
+    # do the key rotation background task
+    _rotate_keys(kr)
