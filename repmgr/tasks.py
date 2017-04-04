@@ -446,7 +446,7 @@ def _rotate_keys(kr):
 
         if kr.type == "jks":
             def _copy_jks(path, hostname):
-                out = put(path, '/etc/gluu/conf/oxauth-keys.jks')
+                out = put(path, '/etc/certs/oxauth-keys.jks')
                 if out.failed:
                     print "unable to copy JKS file to " \
                         "oxAuth server {}".format(hostname)
