@@ -94,4 +94,5 @@ TODO
 repmgr/conffiles/*.conf
 
 celerybeat-schedule.*
+celerybeat.pid
 *.db
