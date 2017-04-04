@@ -479,4 +479,4 @@ def schedule_key_rotation():
 
 @celery.on_after_configure.connect
 def setup_periodic_tasks(sender, **kwargs):
-    sender.add_periodic_task(30.0, schedule_key_rotation.s(), name='add every 30')
+    sender.add_periodic_task(celery.conf['SCHEDULE_REFRESH'], schedule_key_rotation.s(), name='add every 30')
