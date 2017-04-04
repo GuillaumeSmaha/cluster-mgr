@@ -432,28 +432,8 @@ def _rotate_keys(kr):
                 pass
 
 
-# @celery.on_after_configure.connect
-# def setup_periodic_tasks(sender, **kwargs):
-#     # Calls test('hello') every 2 seconds.
-#     sender.add_periodic_task(2.0, add.s(600,66), name='add every 2')
-
-@celery.task(bind=True)
-def add(self, x, y):
-    r = x + y
-    print "task arguments: {x}, {y}".format(x=x, y=y)
-    print "task result: {r}".format(r=r)
-    return r
-
-# @celery.task
-# def add(x, y):
-#     r = x + y
-#     print "task arguments: {x}, {y}".format(x=x, y=y)
-#     print "task result: {r}".format(r=r)
-#     return r
-
-
-@celery.task(bind=True)
-def schedule_key_rotation(t):
+@celery.task
+def schedule_key_rotation():
     kr = KeyRotation.query.first()
 
     if not kr:
@@ -467,3 +447,8 @@ def schedule_key_rotation(t):
 
     # do the key rotation background task
     _rotate_keys(kr)
+
+
+@celery.on_after_configure.connect
+def setup_periodic_tasks(sender, **kwargs):
+    sender.add_periodic_task(30.0, schedule_key_rotation.s(), name='add every 30')
