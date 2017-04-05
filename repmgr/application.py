@@ -1,9 +1,12 @@
 import redis
 import json
+import os
 
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from celery import Celery
+from flask_script import Manager
+from flask_migrate import Migrate, MigrateCommand
 
 
 def make_celery(app):
@@ -63,6 +66,15 @@ app.config.from_object('repmgr.config.DevelopmentConfig')
 db = SQLAlchemy(app)
 celery = make_celery(app)
 wlogger = WebLogger(app)
+migrate = Migrate(
+    app, db, directory=os.path.join(os.path.dirname(__file__), "migrations"),
+)
+manager = Manager(app)
+manager.add_command("db", MigrateCommand)
 
-from .views import *
-from .tasks import *
+
+def cli():
+    manager.run()
+
+from .views import *  # noqa
+from .tasks import *  # noqa

@@ -1,2 +1,3 @@
 graft repmgr/templates
 graft repmgr/static
+graft repmgr/migrations
