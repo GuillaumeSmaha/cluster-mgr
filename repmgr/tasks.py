@@ -221,6 +221,7 @@ def run_command(taskid, command):
     outlog = StringIO.StringIO()
     errlog = StringIO.StringIO()
 
+    wlogger.log(taskid, command, "debug")
     output = run(command, stdout=outlog, stderr=errlog)
 
     wlogger.log(taskid, outlog.getvalue(), "debug")
@@ -253,9 +254,11 @@ def generate_slapd(taskid, conffile):
     log = run_command(taskid, 'service solserver start')
     if 'failed' in log:
         wlogger.log(taskid, "\n===>  Debugging slapd...")
-        log = run("/opt/symas/lib64/slapd -d 1 "
-                  "-f /opt/symas/etc/openldap/slapd.conf")
-        wlogger.log(taskid, "{0}\n> {1}".format(log.real_command, log))
+        run_command(taskid, "/opt/symas/lib64/slapd -d 1 "
+                    "-f /opt/symas/etc/openldap/slapd.conf")
+    else:
+        wlogger.log(taskid, "\nNOTE: Setting up of LDAP server is complete. "
+                    "Initialize the server from the dashboard.")
 
 
 def chcmd(chdir, command):
@@ -291,9 +294,11 @@ def gen_slapd_gluu(taskid, conffile, version):
     log = run_command(taskid, chcmd(sloc, 'service solserver start'))
     if 'failed' in log:
         wlogger.log(taskid, "\n===>  Debugging slapd...")
-        log = run(chcmd(sloc, "/opt/symas/lib64/slapd -d 1 "
-                  "-f /opt/symas/etc/openldap/slapd.conf"))
-        wlogger.log(taskid, "{0}\n> {1}".format(log.real_command, log))
+        run_command(taskid, chcmd(sloc, "/opt/symas/lib64/slapd -d 1 "
+                    "-f /opt/symas/etc/openldap/slapd.conf"))
+    else:
+        wlogger.log(taskid, "\nNOTE: Setting up of LDAP server is complete. "
+                    "Initialize the server from the dashboard.")
 
 
 @celery.task(bind=True)
