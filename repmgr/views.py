@@ -33,8 +33,7 @@ def app_configuration():
     conf_form = AppConfigForm()
     sch_form = SchemaForm()
     config = AppConfiguration.query.get(1)
-    schemafiles = os.listdir(os.path.join(app.root_path, 'schema'))
-    schemafiles.remove('DUMMY')
+    schemafiles = os.listdir(os.path.join(app.config['DATA_DIR'], 'schema'))
 
     if conf_form.update.data and conf_form.validate_on_submit():
         if not config:

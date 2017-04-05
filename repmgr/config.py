@@ -20,6 +20,8 @@ class Config(object):
         os.path.join(os.path.expanduser("~"), ".repmgr"),
     )
     APP_INSTANCE_DIR = os.path.join(DATA_DIR, "instance")
+    SCHEMA_DIR = os.path.join(DATA_DIR, "schema")
+    SLAPDCONF_DIR = os.path.join(DATA_DIR, "slapdconf")
 
 
 class ProductionConfig(Config):
