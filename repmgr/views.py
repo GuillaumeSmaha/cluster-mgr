@@ -2,12 +2,13 @@ import os
 
 from flask import render_template, redirect, url_for, flash, request, jsonify,\
     session
+from werkzeug.utils import secure_filename
 from celery.result import AsyncResult
 
 from .application import app, db, celery, wlogger
 from .models import LDAPServer, AppConfiguration, KeyRotation, OxauthServer
 from .forms import NewProviderForm, NewConsumerForm, AppConfigForm, \
-    NewMirrorModeForm, KeyRotationForm
+    NewMirrorModeForm, KeyRotationForm, SchemaForm
 from .tasks import initialize_provider, replicate, setup_server, \
     rotate_pub_keys
 from .utils import ldap_encode
@@ -29,20 +30,19 @@ def error_page(error=None):
 
 @app.route('/configuration/', methods=['GET', 'POST'])
 def app_configuration():
-    form = AppConfigForm()
+    conf_form = AppConfigForm()
+    sch_form = SchemaForm()
     config = AppConfiguration.query.get(1)
-    if request.method == 'GET' and config:
-        form.replication_dn.data = ""
-        if config.replication_dn:
-            config.replication_dn.replace("cn=", "").replace(",o=gluu", "")
-        form.replication_pw.data = config.replication_pw
-        form.certificate_folder.data = config.certificate_folder
-    if form.validate_on_submit():
+    schemafiles = os.listdir(os.path.join(app.root_path, 'schema'))
+    schemafiles.remove('DUMMY')
+
+    if conf_form.update.data and conf_form.validate_on_submit():
         if not config:
             config = AppConfiguration()
-        config.replication_dn = "cn={},o=gluu".format(form.replication_dn.data)
-        config.replication_pw = form.replication_pw.data
-        config.certificate_folder = form.certificate_folder.data
+        config.replication_dn = "cn={},o=gluu".format(
+                conf_form.replication_dn.data)
+        config.replication_pw = conf_form.replication_pw.data
+        config.certificate_folder = conf_form.certificate_folder.data
 
         db.session.add(config)
         db.session.commit()
@@ -51,7 +51,27 @@ def app_configuration():
         if request.args.get('next'):
             return redirect(request.args.get('next'))
 
-    return render_template('app_config.html', form=form, config=config,
+    elif sch_form.upload.data and sch_form.validate_on_submit():
+        f = sch_form.schema.data
+        filename = secure_filename(f.filename)
+        if any(filename in s for s in schemafiles):
+            name, extension = os.path.splitext(filename)
+            matches = [s for s in schemafiles if name in s]
+            filename = name + "_" + str(len(matches)) + extension
+        f.save(os.path.join(
+            app.root_path, 'schema', filename))
+        schemafiles.append(filename)
+        flash("Schema: {0} has been uploaded sucessfully.".format(filename),
+              "success")
+
+    if config:
+        conf_form.replication_dn.data = config.replication_dn.replace(
+                "cn=", "").replace(",o=gluu", "")
+        conf_form.replication_pw.data = config.replication_pw
+        conf_form.certificate_folder.data = config.certificate_folder
+
+    return render_template('app_config.html', cform=conf_form, sform=sch_form,
+                           config=config, schemafiles=schemafiles,
                            next=request.args.get('next'))
 
 

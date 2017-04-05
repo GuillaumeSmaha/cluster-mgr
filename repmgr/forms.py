@@ -1,7 +1,8 @@
 from flask_wtf import FlaskForm
 from wtforms import StringField, SelectField, BooleanField, IntegerField, \
-    PasswordField, RadioField
+    PasswordField, RadioField, SubmitField
 from wtforms.validators import DataRequired, Regexp, AnyOf, ValidationError
+from flask_wtf.file import FileField, FileRequired
 
 
 class NewProviderForm(FlaskForm):
@@ -52,6 +53,12 @@ class AppConfigForm(FlaskForm):
     replication_pw = PasswordField('Replication Manager Password',
                                    validators=[DataRequired()])
     certificate_folder = StringField('Certificate Folder')
+    update = SubmitField("Update Configuration")
+
+
+class SchemaForm(FlaskForm):
+    schema = FileField(validators=[FileRequired()])
+    upload = SubmitField("Upload Schema")
 
 
 class KeyRotationForm(FlaskForm):

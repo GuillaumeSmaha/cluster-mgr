@@ -92,6 +92,7 @@ ENV/
 
 TODO
 repmgr/conffiles/*.conf
+repmgr/schema/*.*
 
 celerybeat-schedule.*
 celerybeat.pid

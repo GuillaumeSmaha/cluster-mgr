@@ -1,39 +1,56 @@
 {% extends "base.html" %}
-{% from 'macros.html' import render_field %}
+{% from 'macros.html' import render_field, render_form %}
 {% block content %}
 <h2 class="page-header">App Configuration</h2>
-<form action="{{ url_for('app_configuration', next=next) }}" method="POST">
-    {{ form.csrf_token }}
 <div class="panel panel-default">
   <div class="panel-heading">
     <h3 class="panel-title">Replication</h3>
   </div>
   <div class="panel-body">
-      <div class="form-group {{ 'has-error' if form.replication_dn.errors else '' }}">
-        {{ form.replication_dn.label(class="control-label") }}
+    <form id="cform" action="{{ url_for('app_configuration', next=next) }}" method="POST">
+        {{ cform.csrf_token }}
+      <div class="form-group {{ 'has-error' if cform.replication_dn.errors else '' }}">
+        {{ cform.replication_dn.label(class="control-label") }}
         <p class="help-block">This DN (e.g., cn=replicator,o=gluu) will be used by all consumers to authenticate with providers.</p>
         <div class="input-group">
             <span class="input-group-addon">cn=</span>
-            {{ form.replication_dn(class="form-control", placeholder="replicator") }}
+            {{ cform.replication_dn(class="form-control", placeholder="replicator") }}
             <span class="input-group-addon">,o=gluu</span>
         </div>
-      {% for error in form.replication_dn.errors %}
+      {% for error in cform.replication_dn.errors %}
         <p class="help-block">{{ error }}</p>
       {% endfor %}
     </div>
-    {{ render_field(form.replication_pw) }}
+    {{ render_field(cform.replication_pw) }}
+
+    {{ render_field(cform.certificate_folder, placeholder="/etc/certs", help="Location of SSL certificates for Replication Manager to use.") }}
+    {{ cform.update(class="btn btn-primary")}}
+    </form>
   </div>
 </div>
 
 <div class="panel panel-default">
-  <div class="panel-heading">
-    <h3 class="panel-title">SSL/TLS</h3>
-  </div>
-  <div class="panel-body">
-    {{ render_field(form.certificate_folder, placeholder="/etc/certs", help="Location of SSL certificates for Replication Manager to use.") }}
-  </div>
+    <div class="panel-heading">
+        <h3 class="panel-title">Custom Schema Files</h3>
+    </div>
+    <div class="panel-body">
+        <ul class="list-group">
+        {% for sf in schemafiles %}
+            <li class="list-group-item">{{ sf }}</li>
+        {% endfor %}
+        </ul>
+        <form id="sform" action="" method="POST" enctype="multipart/form-data">
+            {{ sform.csrf_token }}
+            <div class="row">
+                <div class="col-md-2">
+                    {{ sform.schema }}
+                </div>
+                <div class="col-md-6">
+                    {{ sform.upload(class="btn btn-success") }}
+                </div>
+            </div>
+        </form>
+    </div>
 </div>
 
-<button type="submit" class="btn btn-primary">Update Configuration</button>
-</form>
 {% endblock %}
