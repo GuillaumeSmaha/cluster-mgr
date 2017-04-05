@@ -33,7 +33,7 @@ def app_configuration():
     conf_form = AppConfigForm()
     sch_form = SchemaForm()
     config = AppConfiguration.query.get(1)
-    schemafiles = os.listdir(os.path.join(app.config['DATA_DIR'], 'schema'))
+    schemafiles = os.listdir(app.config['SCHEMA_DIR'])
 
     if conf_form.update.data and conf_form.validate_on_submit():
         if not config:
@@ -57,8 +57,7 @@ def app_configuration():
             name, extension = os.path.splitext(filename)
             matches = [s for s in schemafiles if name in s]
             filename = name + "_" + str(len(matches)) + extension
-        f.save(os.path.join(
-            app.root_path, 'schema', filename))
+        f.save(os.path.join(app.config['SCHEMA_DIR'], filename))
         schemafiles.append(filename)
         flash("Schema: {0} has been uploaded sucessfully.".format(filename),
               "success")
@@ -263,9 +262,9 @@ def mirror(sid1, sid2):
     s2 = LDAPServer.query.get(sid2)
 
     file1 = os.path.join(
-        app.root_path, "conffiles", "{}_slapd.conf".format(sid1))
+        app.config['SLAPDCONF_DIR'], "{}_slapd.conf".format(sid1))
     file2 = os.path.join(
-        app.root_path, "conffiles", "{}_slapd.conf".format(sid2))
+        app.config['SLAPDCONF_DIR'], "{}_slapd.conf".format(sid2))
 
     template = request.form.get('conf')
     generate_mirror_conf(file1, template, s1, s2)
@@ -315,7 +314,7 @@ def test_replication():
 @app.route('/server/<int:server_id>/setup/', methods=['POST'])
 def configure_server(server_id):
     filename = "{}_slapd.conf".format(server_id)
-    filepath = os.path.join(app.root_path, "conffiles", filename)
+    filepath = os.path.join(app.config['SLAPDCONF_DIR'], filename)
     conf = request.form.get('conf')
 
     with open(filepath, 'w') as f:

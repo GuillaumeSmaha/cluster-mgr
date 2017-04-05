@@ -237,9 +237,7 @@ def generate_slapd(taskid, conffile):
     run_command('mkdir -p /opt/gluu/data/site_db')
     run_command('mkdir -p /opt/gluu/schema/openldap')
 
-    schemas = os.path.listdir(os.path.join(app.root_path, "schema"))
-    if 'DUMMY' in schemas:
-        schemas.remove('DUMMY')
+    schemas = os.path.listdir(app.config['SCHEMA_DIR'])
     if len(schemas):
         wlogger.log(taskid, "\n===> Copying Custom Schema files to server")
         for schema in schemas:
