@@ -61,14 +61,36 @@ class WebLogger():
         self.r.delete(self.__key(taskid))
 
 
+def _get_app_config():
+    app_mode = os.environ.get("APP_MODE")
+    if app_mode == "prod":
+        cfg = "repmgr.config.ProductionConfig"
+    elif app_mode == "test":
+        cfg = "repmgr.config.TestConfig"
+    else:
+        cfg = "repmgr.config.DevelopmentConfig"
+    return cfg
+
+
 app = Flask(__name__)
-app.config.from_object('repmgr.config.DevelopmentConfig')
+app.config.from_object(_get_app_config())
+app.instance_path = app.config["APP_INSTANCE_DIR"]
+# allow custom config
+app.config.from_pyfile(
+    os.path.join(app.instance_path, "config.py"),
+    silent=True,
+)
+
 db = SQLAlchemy(app)
+
 celery = make_celery(app)
+
 wlogger = WebLogger(app)
+
 migrate = Migrate(
     app, db, directory=os.path.join(os.path.dirname(__file__), "migrations"),
 )
+
 manager = Manager(app)
 manager.add_command("db", MigrateCommand)
 
