@@ -8,6 +8,7 @@
 
 {% block js %}
 <script>
+    $('#gluu_version').parent().hide();
     $('#gluu_server').click(function(){
         if($('#gluu_server').is(':checked')){
             $('#gluu_version').parent().show();
