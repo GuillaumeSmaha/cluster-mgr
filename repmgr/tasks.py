@@ -1,3 +1,4 @@
+import os
 import ldap
 import time
 import StringIO
@@ -6,10 +7,9 @@ from datetime import datetime
 
 import requests
 from fabric.api import run, execute, cd, put
-from fabric.contrib.files import exists
 from fabric.context_managers import settings
 
-from .application import celery, db, wlogger
+from .application import celery, db, wlogger, app
 from .models import LDAPServer, AppConfiguration, KeyRotation, OxauthServer
 from .ldaplib import ldap_conn, search_from_ldap
 from .utils import decrypt_text
@@ -232,6 +232,20 @@ def run_command(taskid, command):
 
 
 def generate_slapd(taskid, conffile):
+    wlogger.log(taskid, "\n===> Creating Data and Schema Directories for LDAP")
+    run_command('mkdir -p /opt/gluu/data/main_db')
+    run_command('mkdir -p /opt/gluu/data/site_db')
+    run_command('mkdir -p /opt/gluu/schema/openldap')
+
+    schemas = os.path.listdir(os.path.join(app.root_path, "schema"))
+    if 'DUMMY' in schemas:
+        schemas.remove('DUMMY')
+    if len(schemas):
+        wlogger.log(taskid, "\n===> Copying Custom Schema files to server")
+        for schema in schemas:
+            put(os.path.join(app.root_path, "schema", schema),
+                "/opt/gluu/schema/openldap/"+schema)
+
     wlogger.log(taskid, "\n===>  Copying slapd.conf file to remote server")
     out = put(conffile, '/opt/symas/etc/openldap/slapd.conf')
     if out.failed:
