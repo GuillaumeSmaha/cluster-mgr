@@ -314,61 +314,6 @@ def setup_server(self, server_id, conffile):
             execute(generate_slapd, self.request.id, conffile, hosts=[host])
 
 
-def check_certificates(taskid, server):
-    wlogger.log(taskid, "Checking for Server Certificates.")
-    if exists(server.tls_cacert):
-        wlogger.log(taskid, "TLS CA Cert: {}".format(server.tls_cacert),
-                    "success")
-    else:
-        wlogger.log(taskid, "TLS CA Cert: {}".format(server.tls_cacert),
-                    "error")
-    if exists(server.tls_servercert):
-        wlogger.log(taskid, "TLS Server Cert:{}".format(server.tls_servercert),
-                    "success")
-    else:
-        wlogger.log(taskid, "TLS Server Cert:{}".format(server.tls_servercert),
-                    "error")
-    if exists(server.tls_serverkey):
-        wlogger.log(taskid, "TLS Server Key: {}".format(server.tls_serverkey),
-                    "success")
-    else:
-        wlogger.log(taskid, "TLS Server Key: {}".format(server.tls_serverkey),
-                    "error")
-
-
-def check_ldap_data_directories(taskid, server):
-    wlogger.log(taskid, "Checking for LDAP Data Directories")
-    if exists('/opt/gluu/data/main_db'):
-        wlogger.log(taskid, "Main data dir: /opt/gluu/data/main_db", "success")
-    else:
-        wlogger.log(taskid, "Missing main data dir /opt/gluu/data/main_db",
-                    "error")
-        wlogger.log(taskid, "Creating main data dir /opt/gluu/data/main_db")
-        run('mkdir -p /opt/gluu/data/main_db')
-
-    if exists('/opt/gluu/data/accesslog'):
-        wlogger.log(taskid, "Accesslog dir: /opt/gluu/data/accesslog",
-                    "success")
-    else:
-        wlogger.log(taskid, "Missing Accesslog dir /opt/gluu/data/accesslog",
-                    "error")
-        wlogger.log(taskid, "Creating Accesslog dir /opt/gluu/data/accesslog")
-        run('mkdir -p /opt/gluu/data/accesslog')
-
-
-@celery.task(bind=True)
-def check_requirements(self, server_id):
-    # check for the following TODO
-    # 1. existance of all the certificate files
-    # 2. existance of the default data directories
-    server = LDAPServer.query.get(server_id)
-    host = "root@{}".format(server.hostname)
-    with settings(warn_only=True):
-        # Check certificates
-        execute(check_certificates, self.request.id, server, hosts=[host])
-        # Check LDAP data directories
-
-
 def modify_oxauth_config(kr, pub_keys=None, openid_jks_pass=""):
     server = LDAPServer.query.filter_by(role="provider").first()
 
