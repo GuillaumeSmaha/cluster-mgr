@@ -125,12 +125,14 @@
         $.get(log_url, function(data){
             var log = '';
             for(var i=0; i<data.messages.length; i++){
-                log += "\n"+ data.messages[i].msg;
+                if( data.messages[i].msg != ""){  // skip empty lines
+                    log += "\n"+ data.messages[i].msg;
+                }
             }
             $('#log').text(log);
             if(data.state == 'SUCCESS' || data.state == 'FAILURE'){
                 clearInterval(tid);
-                if( log.search('Debugging slapd...') == -1 ){
+                if( log.search('Debugging slapd...') == -1 && log.search('slapd has not been configured') == -1 ){
                     $('#gohome').show();
                 }else{
                     $('#retry').show();

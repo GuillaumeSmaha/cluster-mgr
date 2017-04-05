@@ -21,6 +21,7 @@ class Config(object):
     #     },
     # }
     #CELERY_TIMEZONE = 'BST'
+    SCHEDULE_REFRESH = 30.0
 
 
 class ProductionConfig(Config):

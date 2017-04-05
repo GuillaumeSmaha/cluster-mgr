@@ -21,19 +21,8 @@ class LDAPServer(db.Model):
     provider_id = db.Column(db.Integer, db.ForeignKey('ldap_server.id'))
     consumers = relationship("LDAPServer", backref=backref(
         'provider', remote_side=[id]))
-
-    def __init__(self, hostname, port, admin_pw, role, starttls, provider=None,
-                 cacert=None, servercert=None, serverkey=None):
-        self.hostname = hostname
-        self.port = port
-        self.role = role
-        self.admin_pw = admin_pw
-        self.starttls = starttls
-        self.tls_cacert = cacert
-        self.tls_servercert = servercert
-        self.tls_serverkey = serverkey
-        self.initialized = False
-        self.provider_id = provider
+    gluu_server = db.Column(db.Boolean)
+    gluu_version = db.Column(db.String(10))
 
     def __repr__(self):
         return '<Server %s:%d>' % (self.hostname, self.port)

@@ -221,6 +221,7 @@ def run_command(taskid, command):
     outlog = StringIO.StringIO()
     errlog = StringIO.StringIO()
 
+    wlogger.log(taskid, command, "debug")
     output = run(command, stdout=outlog, stderr=errlog)
 
     wlogger.log(taskid, outlog.getvalue(), "debug")
@@ -253,17 +254,64 @@ def generate_slapd(taskid, conffile):
     log = run_command(taskid, 'service solserver start')
     if 'failed' in log:
         wlogger.log(taskid, "\n===>  Debugging slapd...")
-        log = run("/opt/symas/lib64/slapd -d 1 "
-                  "-f /opt/symas/etc/openldap/slapd.conf")
-        wlogger.log(taskid, "{0}\n> {1}".format(log.real_command, log))
+        run_command(taskid, "/opt/symas/lib64/slapd -d 1 "
+                    "-f /opt/symas/etc/openldap/slapd.conf")
+    else:
+        wlogger.log(taskid, "\nNOTE: Setting up of LDAP server is complete. "
+                    "Initialize the server from the dashboard.")
+
+
+def chcmd(chdir, command):
+    # chroot /chroot_dir /bin/bash -c "<command>"
+    return 'chroot /opt/{0} /bin/bash -c "{1}"'.format(chdir, command)
+
+
+def gen_slapd_gluu(taskid, conffile, version):
+    sloc = 'gluu-server-'+version
+
+    wlogger.log(taskid, "\n===>  Copying slapd.conf file to remote server")
+    out = put(conffile, '/opt/'+sloc+'/opt/symas/etc/openldap/slapd.conf')
+    if out.failed:
+        wlogger.log(taskid, "Failed to copy the slapd.conf file", "error")
+
+    wlogger.log(taskid, "\n===>  Checking status of LDAP server")
+    status = run_command(taskid, chcmd(sloc, 'service solserver status'))
+
+    if 'is running' in status:
+        wlogger.log("\n===>  Stopping LDAP Server")
+        run_command(taskid, chcmd(sloc, 'service solserver stop'))
+
+    with cd('/opt/'+sloc+'/opt/symas/etc/openldap/'):
+        wlogger.log(taskid, "\n===>  Generating slad.d Online Configuration")
+        run_command(taskid, 'rm -rf slapd.d')
+        run_command(taskid, 'mkdir slapd.d')
+
+    run_command(taskid, chcmd(
+        sloc, '/opt/symas/bin/slaptest -f /opt/symas/etc/openldap/slapd.conf '
+        ' -F /opt/symas/etc/openldap/slapd.d'))
+
+    wlogger.log(taskid, "\n===>  Starting LDAP server")
+    log = run_command(taskid, chcmd(sloc, 'service solserver start'))
+    if 'failed' in log:
+        wlogger.log(taskid, "\n===>  Debugging slapd...")
+        run_command(taskid, chcmd(sloc, "/opt/symas/lib64/slapd -d 1 "
+                    "-f /opt/symas/etc/openldap/slapd.conf"))
+    else:
+        wlogger.log(taskid, "\nNOTE: Setting up of LDAP server is complete. "
+                    "Initialize the server from the dashboard.")
 
 
 @celery.task(bind=True)
 def setup_server(self, server_id, conffile):
     server = LDAPServer.query.get(server_id)
     host = "root@{}".format(server.hostname)
-    with settings(warn_only=True):
-        execute(generate_slapd, self.request.id, conffile, hosts=[host])
+    if server.gluu_server:
+        with settings(warn_only=True):
+            execute(gen_slapd_gluu, self.request.id, conffile,
+                    server.gluu_version, hosts=[host])
+    else:
+        with settings(warn_only=True):
+            execute(generate_slapd, self.request.id, conffile, hosts=[host])
 
 
 def check_certificates(taskid, server):
@@ -479,4 +527,4 @@ def schedule_key_rotation():
 
 @celery.on_after_configure.connect
 def setup_periodic_tasks(sender, **kwargs):
-    sender.add_periodic_task(30.0, schedule_key_rotation.s(), name='add every 30')
+    sender.add_periodic_task(celery.conf['SCHEDULE_REFRESH'], schedule_key_rotation.s(), name='add every 30')

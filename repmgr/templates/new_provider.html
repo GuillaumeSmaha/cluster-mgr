@@ -2,5 +2,20 @@
 {% from 'macros.html' import render_form %}
 {% block  content %}
 <h2 class="page-header">New Provider</h2>
-{{ render_form(form, action_url='/new_provider/', action_text='Generate Provider Config', btn_class='btn btn-primary') }}
+
+    {{ render_form(form, action_url='/new_provider/', action_text='Generate Provider Config', btn_class='btn btn-primary') }}
+{% endblock %}
+
+{% block js %}
+<script>
+    $('#gluu_version').parent().hide();
+    $('#gluu_server').click(function(){
+        if($('#gluu_server').is(':checked')){
+            $('#gluu_version').parent().show();
+        } else {
+            $('#gluu_version').parent().hide();
+        }
+    });
+
+</script>
 {% endblock %}
