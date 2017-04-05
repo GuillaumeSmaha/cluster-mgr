@@ -5,10 +5,12 @@ from wtforms.validators import DataRequired, Regexp, AnyOf, ValidationError
 
 
 class NewProviderForm(FlaskForm):
-    hostname = StringField('Hostname', validators=[DataRequired()])
-    port = IntegerField('Port', validators=[DataRequired()])
+    gluu_server = BooleanField('This is a Gluu Server (Uncheck for plain OpenLDAP installations)', default=False)
+    gluu_version = SelectField('Gluu Server Version', choices=[('3.0.1', '3.0.1')])
+    hostname = StringField('Hostname *', validators=[DataRequired()])
+    port = IntegerField('Port *', validators=[DataRequired()])
+    admin_pw = PasswordField('LDAP Admin Password *', validators=[DataRequired()])
     starttls = BooleanField('Use StartTLS for communication', default=False)
-    admin_pw = PasswordField('LDAP Admin Password', validators=[DataRequired()])  # noqa
     tls_cacert = StringField('TLS CA Certificate')
     tls_servercert = StringField('TLS Server Certificate')
     tls_serverkey = StringField('TLS Server Cert Key')

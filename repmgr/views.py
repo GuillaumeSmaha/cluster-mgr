@@ -85,19 +85,20 @@ def new_provider():
     form = NewProviderForm(request.form)
     appconfig = AppConfiguration.query.first()
     if form.validate_on_submit():
-        host = form.hostname.data
-        port = form.port.data
-        role = 'provider'
-        starttls = form.starttls.data
-        cacert = form.tls_cacert.data
-        servercert = form.tls_servercert.data
-        serverkey = form.tls_serverkey.data
-        admin_pw = form.admin_pw.data
-        provider = None
-
-        server = LDAPServer(host, port, admin_pw, role, starttls,
-                            provider, cacert, servercert, serverkey)
-        db.session.add(server)
+        s = LDAPServer()
+        s.hostname = form.hostname.data
+        s.port = form.port.data
+        s.role = 'provider'
+        s.starttls = form.starttls.data
+        s.tls_cacert = form.tls_cacert.data
+        s.tls_servercert = form.tls_servercert.data
+        s.tls_serverkey = form.tls_serverkey.data
+        s.initialized = False
+        s.admin_pw = form.admin_pw.data
+        s.provider = None
+        s.gluu_server = form.gluu_server.data
+        s.gluu_version = form.gluu_version.data
+        db.session.add(s)
         db.session.commit()
 
         conf = ''
@@ -105,17 +106,17 @@ def new_provider():
                                "provider.conf")
         with open(confile, 'r') as c:
             conf = c.read()
-        conf_values = {"openldapTLSCACert": cacert,
-                       "openldapTLSCert": servercert,
-                       "openldapTLSKey": serverkey,
-                       "encoded_ldap_pw": ldap_encode(admin_pw),
+        conf_values = {"openldapTLSCACert": s.tls_cacert,
+                       "openldapTLSCert": s.tls_servercert,
+                       "openldapTLSKey": s.tls_serverkey,
+                       "encoded_ldap_pw": ldap_encode(s.admin_pw),
                        "mirror_conf": "",
-                       "server_id": server.id,
+                       "server_id": s.id,
                        "replication_dn": appconfig.replication_dn,
                        "openldapSchemaFolder": "/opt/gluu/schema/openldap",
                        "BCRYPT": "{BCRYPT}"}
         conf = conf.format(**conf_values)
-        return render_template("editor.html", config=conf, server=server)
+        return render_template("editor.html", config=conf, server=s)
 
     return render_template('new_provider.html', form=form)
 
@@ -130,20 +131,21 @@ def new_consumer():
         return redirect(url_for('error_page', error='no-provider'))
 
     if form.validate_on_submit():
-        host = form.hostname.data
-        port = form.port.data
-        role = "consumer"
-        starttls = form.starttls.data
-        cacert = form.tls_cacert.data
-        servercert = form.tls_servercert.data
-        serverkey = form.tls_serverkey.data
-        provider_id = form.provider.data
-        admin_pw = form.admin_pw.data
-        provider = LDAPServer.query.get(provider_id)
+        s = LDAPServer()
+        s.hostname = form.hostname.data
+        s.port = form.port.data
+        s.role = "consumer"
+        s.starttls = form.starttls.data
+        s.tls_cacert = form.tls_cacert.data
+        s.tls_servercert = form.tls_servercert.data
+        s.tls_serverkey = form.tls_serverkey.data
+        s.initialized = False
+        s.admin_pw = form.admin_pw.data
+        s.provider_id = form.provider.data
+        s.gluu_server = False
+        s.gluu_version = None
 
-        server = LDAPServer(host, port, admin_pw, role, starttls,
-                            provider_id, cacert, servercert, serverkey)
-        db.session.add(server)
+        db.session.add(s)
         db.session.commit()
 
         conf = ''
@@ -153,14 +155,16 @@ def new_consumer():
             conf = c.read()
 
         appconfig = AppConfiguration.query.get(1)
-        conf_values = {"TLSCACert": cacert, "TLSServerCert": servercert,
-                       "TLSServerKey": serverkey, "admin_pw": admin_pw,
+        provider = LDAPServer.query.get(s.provider_id)
+        conf_values = {"TLSCACert": s.tls_cacert,
+                       "TLSServerCert": s.tls_servercert,
+                       "TLSServerKey": s.tls_serverkey, "admin_pw": s.admin_pw,
                        "phost": provider.hostname, "pport": provider.port,
                        "r_id": provider.id, "r_pw": appconfig.replication_pw,
                        "replication_dn": appconfig.replication_dn
                        }
         conf = conf.format(**conf_values)
-        return render_template("editor.html", config=conf, server=server)
+        return render_template("editor.html", config=conf, server=s)
 
     return render_template('new_consumer.html', form=form)
 
@@ -170,39 +174,39 @@ def new_mirrormode():
     form = NewMirrorModeForm(request.form)
     if form.validate_on_submit():
         # Server 1
-        host = form.host1.data
-        port = form.port1.data
-        role = 'provider'
-        starttls = form.tls1.data
-        cacert = form.cacert1.data
-        servercert = form.servercert1.data
-        serverkey = form.serverkey1.data
-        admin_pw = form.admin_pw1.data
-        provider = None
+        s1 = LDAPServer()
+        s1.hostname = form.host1.data
+        s1.port = form.port1.data
+        s1.role = 'provider'
+        s1.starttls = form.tls1.data
+        s1.tls_cacert = form.cacert1.data
+        s1.tls_servercert = form.servercert1.data
+        s1.tls_serverkey = form.serverkey1.data
+        s1.admin_pw = form.admin_pw1.data
+        s1.provider_id = None
+        s1.gluu_server = False
 
-        server1 = LDAPServer(host, port, admin_pw, role, starttls,
-                             provider, cacert, servercert, serverkey)
-        db.session.add(server1)
+        db.session.add(s1)
         db.session.flush()
 
         # Server 2
-        host = form.host2.data
-        port = form.port2.data
-        role = 'provider'
-        starttls = form.tls2.data
-        cacert = form.cacert2.data
-        servercert = form.servercert2.data
-        serverkey = form.serverkey2.data
-        admin_pw = form.admin_pw2.data
-        provider = server1.id
+        s2 = LDAPServer()
+        s2.hostname = form.host2.data
+        s2.port = form.port2.data
+        s2.role = 'provider'
+        s2.starttls = form.tls2.data
+        s2.tls_cacert = form.cacert2.data
+        s2.tls_servercert = form.servercert2.data
+        s2.tls_serverkey = form.serverkey2.data
+        s2.admin_pw = form.admin_pw2.data
+        s2.provider_id = s1.id
+        s1.gluu_server = False
 
-        server2 = LDAPServer(host, port, admin_pw, role, starttls,
-                             provider, cacert, servercert, serverkey)
-        db.session.add(server2)
+        db.session.add(s2)
         db.session.flush()
 
-        server1.provider_id = server2.id
-        db.session.add(server1)
+        s1.provider_id = s2.id
+        db.session.add(s1)
         db.session.commit()
 
         conf = ''
@@ -216,8 +220,8 @@ def new_mirrormode():
             mirror = m.read()
         conf = conf.replace('{mirror_conf}', mirror)
 
-        return render_template("editor.html", config=conf, server=server1,
-                               mirror=server2)
+        return render_template("editor.html", config=conf, server=s1,
+                               mirror=s2)
 
     return render_template('new_mirror_providers.html', form=form)
 
