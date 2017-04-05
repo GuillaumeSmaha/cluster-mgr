@@ -89,3 +89,35 @@ class OxauthServer(db.Model):
 
     # hostname for SSH access
     hostname = db.Column(db.String(255))
+
+
+class LoggingServer(db.Model):
+    __tablename__ = "logging_server"
+
+    id = db.Column(db.Integer, primary_key=True)
+    url = db.Column(db.String(255))
+
+    # # RDBMS backend, must be ``mysql`` or ``postgres``
+    # db_backend = db.Column(db.String(16))
+
+    # # RDBMS hostname or IP address
+    # db_host = db.Column(db.String(128))
+
+    # # RDBMS port
+    # db_port = db.Column(db.Integer)
+
+    # db_user = db.Column(db.String(128))
+
+    # # encrypted password; need to decrypt it before using the value
+    # db_password = db.Column(db.String(255))
+
+    # # ActiveMQ hostname or IP address
+    # mq_host = db.Column(db.String(128))
+
+    # # ActiveMQ port
+    # mq_port = db.Column(db.Integer)
+
+    # mq_user = db.Column(db.String(128))
+
+    # # encrypted password; need to decrypt it before using the value
+    # mq_password = db.Column(db.String(255))

@@ -1,7 +1,8 @@
 from flask_wtf import FlaskForm
 from wtforms import StringField, SelectField, BooleanField, IntegerField, \
     PasswordField, RadioField, SubmitField
-from wtforms.validators import DataRequired, Regexp, AnyOf, ValidationError
+from wtforms.validators import DataRequired, Regexp, AnyOf, \
+    ValidationError, URL
 from flask_wtf.file import FileField, FileRequired
 
 
@@ -81,3 +82,16 @@ class KeyRotationForm(FlaskForm):
         if not field.data and form.type.data == "oxeleven":
             raise ValidationError("This field is required if oxEleven is "
                                   "selected as rotation type")
+
+
+class LoggingServerForm(FlaskForm):
+    # mq_host = StringField("Hostname", validators=[DataRequired()])
+    # mq_port = IntegerField("Port", validators=[DataRequired()])
+    # mq_user = StringField("User", validators=[DataRequired()])
+    # mq_password = PasswordField("Password", validators=[DataRequired()])
+    # db_host = StringField("Hostname", validators=[DataRequired()])
+    # db_port = IntegerField("Port", validators=[DataRequired()])
+    # db_user = StringField("User", validators=[DataRequired()])
+    # db_password = PasswordField("Password", validators=[DataRequired()])
+    url = StringField("URL", validators=[DataRequired(),
+                                         URL(require_tld=False)])

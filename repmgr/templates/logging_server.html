@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% from 'macros.html' import render_radio_field, render_field %}
+{% block content %}
+<h2 class="page-header">oxAuth Logs</h2>
+<form action="{{ url_for('logging_server') }}" method="POST">
+    {{ form.csrf_token }}
+    <div class="panel panel-default">
+        <div class="panel-heading">
+            <h3 class="panel-title">Message Consumer</h3>
+        </div>
+        <div class="panel-body">
+            {{ render_field(form.url, help='Base URL of Message Consumer application.') }}
+        </div>
+    </div>
+    <button type="submit" class="btn btn-primary">Save Config</button>
+</form>
+{% endblock %}

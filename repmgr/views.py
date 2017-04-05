@@ -40,7 +40,7 @@ def app_configuration():
         if not config:
             config = AppConfiguration()
         config.replication_dn = "cn={},o=gluu".format(
-                conf_form.replication_dn.data)
+            conf_form.replication_dn.data)
         config.replication_pw = conf_form.replication_pw.data
         config.certificate_folder = conf_form.certificate_folder.data
 
@@ -66,7 +66,7 @@ def app_configuration():
 
     if config:
         conf_form.replication_dn.data = config.replication_dn.replace(
-                "cn=", "").replace(",o=gluu", "")
+            "cn=", "").replace(",o=gluu", "")
         conf_form.replication_pw.data = config.replication_pw
         conf_form.certificate_folder.data = config.certificate_folder
 
@@ -398,3 +398,24 @@ def delete_oxauth_server(id):
         db.session.delete(server)
         db.session.commit()
     return jsonify({}), 204
+
+
+@app.route("/logging_server", methods=["GET", "POST"])
+def logging_server():
+    from .forms import LoggingServerForm
+    from .models import LoggingServer
+
+    log = LoggingServer.query.first()
+    form = LoggingServerForm()
+
+    if request.method == "GET" and log is not None:
+        form.url.data = log.url
+
+    if form.validate_on_submit():
+        if not log:
+            log = LoggingServer()
+            log.url = form.url.data
+            db.session.add(log)
+            db.session.commit()
+        return redirect("logging_server")
+    return render_template("logging_server.html", form=form)
