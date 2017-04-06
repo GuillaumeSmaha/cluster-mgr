@@ -1,7 +1,16 @@
 {% extends "base.html" %}
-{% from 'macros.html' import render_radio_field, render_field %}
+{% from 'macros.html' import render_field %}
 {% block content %}
 <h2 class="page-header">oxAuth Logs</h2>
+{% if log %}
+<div class="alert">
+    <span>Available logs:</span>
+    <a href="{{ url_for('oxauth_audit_log') }}" class="btn btn-info">Audit Logs</a>
+    <a href="{{ url_for('oxauth_server_log') }}" class="btn btn-info">Server Logs</a>
+</div>
+{% else %}
+<p class="alert alert-warning">Unable to get connection URL to Message Consumer. Please configure the connection URL below.</p>
+{% endif %}
 <form action="{{ url_for('logging_server') }}" method="POST">
     {{ form.csrf_token }}
     <div class="panel panel-default">

@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+    <h2 class="page-header">oxAuth Server Log</h2>
+    {% if err %}
+    <p class="alert alert-warning">{{ err }}</p>
+    {% else %}
+        <dl class="dl-horizontal">
+            <dt>ID:</dt>
+            <dd>{{ log.id }}</dd>
+            <dt>Timestamp:</dt>
+            <dd>{{ log.timestamp }}</dd>
+            <dt>Message:</dt>
+            <dd>{{ log.formattedMessage }}</dd>
+            <dt>Logger Name:</dt>
+            <dd>{{ log.loggerName }}</dd>
+            <dt>Exceptions:</dt>
+            <dd>{{ log.exceptions|join("\n") }}</dd>
+        </dl>
+    {% endif %}
+{% endblock %}

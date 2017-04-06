@@ -1,14 +1,19 @@
 import os
 
+import requests
 from flask import render_template, redirect, url_for, flash, request, jsonify,\
     session
 from werkzeug.utils import secure_filename
 from celery.result import AsyncResult
 
+from .msgcon import get_audit_logs, get_server_logs, \
+    get_server_log_item, get_audit_log_item
+
 from .application import app, db, celery, wlogger
-from .models import LDAPServer, AppConfiguration, KeyRotation, OxauthServer
+from .models import LDAPServer, AppConfiguration, KeyRotation, \
+    OxauthServer, LoggingServer
 from .forms import NewProviderForm, NewConsumerForm, AppConfigForm, \
-    NewMirrorModeForm, KeyRotationForm, SchemaForm
+    NewMirrorModeForm, KeyRotationForm, SchemaForm, LoggingServerForm
 from .tasks import initialize_provider, replicate, setup_server, \
     rotate_pub_keys
 from .utils import ldap_encode
@@ -400,9 +405,6 @@ def delete_oxauth_server(id):
 
 @app.route("/logging_server", methods=["GET", "POST"])
 def logging_server():
-    from .forms import LoggingServerForm
-    from .models import LoggingServer
-
     log = LoggingServer.query.first()
     form = LoggingServerForm()
 
@@ -416,4 +418,96 @@ def logging_server():
             db.session.add(log)
             db.session.commit()
         return redirect("logging_server")
-    return render_template("logging_server.html", form=form)
+    return render_template("logging_server.html", log=log, form=form)
+
+
+@app.route("/logging_server/server-log")
+def oxauth_server_log():
+    err = ""
+    logs = None
+    server = LoggingServer.query.first()
+
+    if not server:
+        err = "Missing logging server configuration."
+        return render_template("oxauth_server_log.html", logs=logs, err=err)
+
+    try:
+        logs = get_server_logs(server.url)
+    except requests.exceptions.ConnectionError:
+        # err = "Unable to establish connection to logging server. " \
+        #       "Please check the connection URL."
+        # from .msgcon import server_logs as logs
+        pass
+
+    if not logs:
+        err = "Logs are not available at the moment. Please try again."
+    return render_template("oxauth_server_log.html", logs=logs, err=err)
+
+
+@app.route("/logging_server/audit-log")
+def oxauth_audit_log():
+    err = ""
+    logs = None
+    server = LoggingServer.query.first()
+
+    if not server:
+        err = "Missing logging server configuration."
+        return render_template("oxauth_audit_log.html", logs=logs, err=err)
+
+    try:
+        logs = get_audit_logs(server.url)
+    except requests.exceptions.ConnectionError:
+        # err = "Unable to establish connection to logging server. " \
+        #       "Please check the connection URL."
+        # from .msgcon import audit_logs as logs
+        pass
+
+    if not logs:
+        err = "Logs are not available at the moment. Please try again."
+    return render_template("oxauth_audit_log.html", logs=logs, err=err)
+
+
+@app.route("/logging_server/audit_log/<int:id>")
+def audit_log_item(id):
+    err = ""
+    log = None
+    server = LoggingServer.query.first()
+
+    if not server:
+        err = "Missing logging server configuration."
+        return render_template("view_audit_log.html", log=log, err=err)
+
+    try:
+        log = get_audit_log_item(server.url, id)
+    except requests.exceptions.ConnectionError:
+        # err = "Unable to establish connection to logging server. " \
+        #       "Please check the connection URL."
+        # from .msgcon import dummy_audit_log as log
+        pass
+
+    if not log:
+        err = "Log is not available at the momment. Please try again."
+    return render_template("view_audit_log.html", log=log, err=err)
+
+
+@app.route("/logging_server/server_log/<int:id>")
+def server_log_item(id):
+    err = ""
+    log = None
+    server = LoggingServer.query.first()
+
+    if not server:
+        err = "Missing logging server configuration."
+        return render_template("view_server_log.html", log=log, err=err)
+
+    try:
+        log = get_server_log_item(server.url, id)
+    except requests.exceptions.ConnectionError:
+        # err = "Unable to establish connection to logging server. " \
+        #       "Please check the connection URL."
+        # from .msgcon import dummy_server_log as log
+        pass
+
+    if not log:
+        err = "Log is not available at the momment. Please try again."
+    return render_template("view_server_log.html", log=log, err=err)

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+    <h2 class="page-header">oxAuth Audit Log</h2>
+    {% if err %}
+    <p class="alert alert-warning">{{ err }}</p>
+    {% else %}
+        <dl class="dl-horizontal">
+            <dt>ID:</dt>
+            <dd>{{ log.id }}</dd>
+            <dt>Timestamp:</dt>
+            <dd>{{ log.timestamp }}</dd>
+            <dt>IP Address:</dt>
+            <dd>{{ log.ip }}</dd>
+            <dt>Client ID:</dt>
+            <dd>{{ log.clientId }}</dd>
+            <dt>Username:</dt>
+            <dd>{{ log.username }}</dd>
+            <dt>Scope:</dt>
+            <dd>{{ log.scope }}</dd>
+            <dt>Success:</dt>
+            <dd>{{ log.success }}</dd>
+            <dt>Action:</dt>
+            <dd>{{ log.action }}</dd>
+        </dl>
+    {% endif %}
+{% endblock %}
