@@ -1,38 +1,38 @@
 {% extends "base.html" %}
 {% block content %}
-<h2 class="page-header">oxAuth Audit Logs</h2>
-{% if err %}
-<p class="alert alert-warning">{{ err }}</p>
-{% else %}
-<table class="table table-bordered">
-    <thead>
-        <tr>
-            <th>Details</th>
-            <th>IP</th>
-            <th>Action</th>
-            <th>Username</th>
-            <th>Scope</th>
-            <th>Success</th>
-            <th>Timestamp</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for log in logs.get_logs("oauth2-audit-logs") %}
-        <tr>
-            <td><a href="{{ url_for('audit_log_item', id=log.id) }}">View</a></td>
-            <td>{{ log.ip }}</td>
-            <td>{{ log.action }}</td>
-            <td>{{ log.username }}</td>
-            <td>{{ log.scope }}</td>
-            <td>{{ log.success }}</td>
-            <td>{{ log.timestamp }}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-<ul class="pagination">
-    <li class="page-item {{ 'disabled' if not logs.has_prev }}"><a class="page-link" href="{{ '#' if not logs.has_prev else '?page=' + logs.prev_page|string }}">Newer</a></li>
-    <li class="page-item {{ 'disabled' if not logs.has_next }}"><a class="page-link" href="{{ '#' if not logs.has_next else '?page=' + logs.next_page|string }}">Older</a></li>
-</ul>
-{% endif %}
+    <h2 class="page-header">oxAuth Audit Logs</h2>
+    {% if err %}
+    <p class="alert alert-warning">{{ err }}</p>
+    {% else %}
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>Details</th>
+                <th>IP</th>
+                <th>Action</th>
+                <th>Username</th>
+                <th>Scope</th>
+                <th>Success</th>
+                <th>Timestamp</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in logs.get_logs() %}
+            <tr>
+                <td><a href="{{ url_for('audit_log_item', id=log.id) }}">View</a></td>
+                <td>{{ log.ip }}</td>
+                <td>{{ log.action }}</td>
+                <td>{{ log.username }}</td>
+                <td>{{ log.scope }}</td>
+                <td>{{ log.success }}</td>
+                <td>{{ log.timestamp }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <ul class="pagination">
+        <li class="page-item {{ 'disabled' if not logs.has_prev }}"><a class="page-link" href="{{ '#' if not logs.has_prev else '?page=' + logs.prev_page|string }}">Newer</a></li>
+        <li class="page-item {{ 'disabled' if not logs.has_next }}"><a class="page-link" href="{{ '#' if not logs.has_next else '?page=' + logs.next_page|string }}">Older</a></li>
+    </ul>
+    {% endif %}
 {% endblock %}

@@ -16,7 +16,7 @@
         </tr>
     </thead>
     <tbody>
-        {% for log in logs.get_logs("oxauth-server-logs") %}
+        {% for log in logs.get_logs() %}
         <tr>
             <td><a href="{{ url_for('server_log_item', id=log.id) }}">View</a></td>
             <td>{{ log.loggerName }}</td>
