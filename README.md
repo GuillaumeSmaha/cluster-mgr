@@ -1,8 +1,8 @@
-# Replication Manager
+# Cluster Manager
 
 GUI tool for managing Gluu Server OpenLDAP replication
 
-## Installing Replication Manager
+## Installing Cluster Manager
 
 Install prerequisites packages first. On debian or ubuntu, install them using `apt-get`:
 
@@ -10,7 +10,7 @@ Install prerequisites packages first. On debian or ubuntu, install them using `a
 sudo apt-get install build-essential libssl-dev libffi-dev python-dev openjdk-7-jre-headless
 ```
 
-Note, OpenJDK or any JVM is required as replication manager relies on several Java libraries.
+Note, OpenJDK or any JVM is required as Cluster Manager relies on several Java libraries.
 After prerequisites packages already installed, we need to get some Java JAR files and put them
 in predefined data directory (by default the location is `$HOME/.clustermgr/javalibs` directory).
 
@@ -46,7 +46,7 @@ cd /path/to/replication-mgr
 python setup.py install
 ```
 
-## Running Replication Manager
+## Running Cluster Manager
 
 A successful installation will install a tool called `clustermgr-cli`.
 Run the tool to initialize the database schema:
@@ -67,7 +67,7 @@ SECRET_KEY=unique-secret-string
 
 For development mode, we can execute `clustermgr-cli runserver`.
 For production mode, it is recommended to use reliable WSGI server i.e. `gunicorn`.
-Here's an example of how to use gunicorn to run replication manager app.
+Here's an example of how to use gunicorn to run Cluster Manager app.
 
 ```
 pip install gunicorn
