@@ -23,7 +23,7 @@ setup(
     zip_safe=False,
     include_package_data=True,
     install_requires=[
-        "Flask",
+        "flask<=0.12",  # loose pin as a workaround for setuptools issue
         "python-ldap",
         "flask-wtf",
         "celery",
