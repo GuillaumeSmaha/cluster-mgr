@@ -233,11 +233,11 @@ def run_command(taskid, command):
 
 def generate_slapd(taskid, conffile):
     wlogger.log(taskid, "\n===> Creating Data and Schema Directories for LDAP")
-    run_command('mkdir -p /opt/gluu/data/main_db')
-    run_command('mkdir -p /opt/gluu/data/site_db')
-    run_command('mkdir -p /opt/gluu/schema/openldap')
+    run_command(taskid, 'mkdir -p /opt/gluu/data/main_db')
+    run_command(taskid, 'mkdir -p /opt/gluu/data/site_db')
+    run_command(taskid, 'mkdir -p /opt/gluu/schema/openldap')
 
-    schemas = os.path.listdir(app.config['SCHEMA_DIR'])
+    schemas = os.listdir(app.config['SCHEMA_DIR'])
     if len(schemas):
         wlogger.log(taskid, "\n===> Copying Custom Schema files to server")
         for schema in schemas:

@@ -37,7 +37,7 @@ def error_page(error=None):
 def app_configuration():
     conf_form = AppConfigForm()
     sch_form = SchemaForm()
-    config = AppConfiguration.query.get(1)
+    config = AppConfiguration.query.first()
     schemafiles = os.listdir(app.config['SCHEMA_DIR'])
 
     if conf_form.update.data and conf_form.validate_on_submit():
@@ -67,7 +67,7 @@ def app_configuration():
         flash("Schema: {0} has been uploaded sucessfully.".format(filename),
               "success")
 
-    if config:
+    if config and config.replication_dn:
         conf_form.replication_dn.data = config.replication_dn.replace(
             "cn=", "").replace(",o=gluu", "")
         conf_form.replication_pw.data = config.replication_pw
@@ -81,7 +81,7 @@ def app_configuration():
 @app.route('/cluster/<topology>/')
 def setup_cluster(topology):
     session['topology'] = topology
-    config = AppConfiguration.query.get(1)
+    config = AppConfiguration.query.first()
     if not config:
         config = AppConfiguration()
         config.topology = topology
