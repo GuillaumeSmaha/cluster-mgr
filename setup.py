@@ -17,8 +17,8 @@ def find_version(*file_paths):
 
 
 setup(
-    name='repmgr',
-    version=find_version("repmgr", "__init__.py"),
+    name='clustermgr',
+    version=find_version("clustermgr", "__init__.py"),
     packages=find_packages(),
     zip_safe=False,
     include_package_data=True,
@@ -35,6 +35,6 @@ setup(
         "flask-migrate",
     ],
     entry_points={
-        "console_scripts": ["repmgr-cli=repmgr.application:cli"],
+        "console_scripts": ["clustermgr-cli=clustermgr.application:cli"],
     },
 )

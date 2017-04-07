@@ -2,25 +2,25 @@ import os
 import unittest
 import tempfile
 
-import repmgr
-from repmgr.models import LDAPServer
+import clustermgr
+from clustermgr.models import LDAPServer
 
 
 class ViewFunctionsTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(self):
-        repmgr.app.config.from_object('repmgr.config.TestingConfig')
-        self.db_fd, repmgr.app.config['DATABASE'] = tempfile.mkstemp()
-        repmgr.app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + \
-            repmgr.app.config['DATABASE']
-        self.app = repmgr.app.test_client()
-        with repmgr.app.app_context():
-            repmgr.application.db.create_all()
+        clustermgr.app.config.from_object('clustermgr.config.TestingConfig')
+        self.db_fd, clustermgr.app.config['DATABASE'] = tempfile.mkstemp()
+        clustermgr.app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + \
+            clustermgr.app.config['DATABASE']
+        self.app = clustermgr.app.test_client()
+        with clustermgr.app.app_context():
+            clustermgr.application.db.create_all()
 
     @classmethod
     def tearDownClass(self):
         os.close(self.db_fd)
-        os.unlink(repmgr.app.config['DATABASE'])
+        os.unlink(clustermgr.app.config['DATABASE'])
 
     def xtest_01_add_server_adds_data_to_db(self):
         server_count = LDAPServer.query.count()

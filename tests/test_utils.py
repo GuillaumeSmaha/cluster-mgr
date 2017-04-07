@@ -1,7 +1,7 @@
 import os
 import unittest
 
-from repmgr.utils import parse_slapdconf
+from clustermgr.utils import parse_slapdconf
 
 
 class SlapdConfParseTest(unittest.TestCase):

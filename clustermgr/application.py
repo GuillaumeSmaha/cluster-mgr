@@ -35,7 +35,7 @@ class WebLogger():
         self.r = redis.Redis(host=host, port=port, db=db)
 
     def __key(self, taskid):
-        return "repmgr:{}".format(taskid)
+        return "clustermgr:{}".format(taskid)
 
     def log(self, taskid, message, level=None, **kwargs):
         """Logs the message into REDIS as a list for that task id"""
@@ -64,11 +64,11 @@ class WebLogger():
 def _get_app_config():
     app_mode = os.environ.get("APP_MODE")
     if app_mode == "prod":
-        cfg = "repmgr.config.ProductionConfig"
+        cfg = "clustermgr.config.ProductionConfig"
     elif app_mode == "test":
-        cfg = "repmgr.config.TestConfig"
+        cfg = "clustermgr.config.TestConfig"
     else:
-        cfg = "repmgr.config.DevelopmentConfig"
+        cfg = "clustermgr.config.DevelopmentConfig"
     return cfg
 
 

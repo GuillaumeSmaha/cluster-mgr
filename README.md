@@ -12,11 +12,11 @@ sudo apt-get install build-essential libssl-dev libffi-dev python-dev openjdk-7-
 
 Note, OpenJDK or any JVM is required as replication manager relies on several Java libraries.
 After prerequisites packages already installed, we need to get some Java JAR files and put them
-in predefined data directory (by default the location is `$HOME/.repmgr/javalibs` directory).
+in predefined data directory (by default the location is `$HOME/.clustermgr/javalibs` directory).
 
 ```
-mkdir -p $HOME/.repmgr/javalibs
-cd $HOME/.repmgr/javalibs
+mkdir -p $HOME/.clustermgr/javalibs
+cd $HOME/.clustermgr/javalibs
 wget -q http://central.maven.org/maven2/org/bouncycastle/bcpkix-jdk15on/1.54/bcpkix-jdk15on-1.54.jar
 wget -q http://central.maven.org/maven2/org/bouncycastle/bcprov-jdk15on/1.54/bcprov-jdk15on-1.54.jar
 wget -q http://central.maven.org/maven2/commons-cli/commons-cli/1.3.1/commons-cli-1.3.1.jar
@@ -48,15 +48,15 @@ python setup.py install
 
 ## Running Replication Manager
 
-A successful installation will install a tool called `repmgr-cli`.
+A successful installation will install a tool called `clustermgr-cli`.
 Run the tool to initialize the database schema:
 
 ```
-repmgr-cli db upgrade
+clustermgr-cli db upgrade
 ```
 
 Before running the app, we need to create custom config file to override default configuration.
-Create a file at `$HOME/.repmgr/instance/config.py`. Here's an example of custom `config.py`:
+Create a file at `$HOME/.clustermgr/instance/config.py`. Here's an example of custom `config.py`:
 
 ```
 DEBUG=False
@@ -65,18 +65,18 @@ SQLALCHEMY_DATABASE_URI=/path/to/sqlite/db
 SECRET_KEY=unique-secret-string
 ```
 
-For development mode, we can execute `repmgr-cli runserver`.
+For development mode, we can execute `clustermgr-cli runserver`.
 For production mode, it is recommended to use reliable WSGI server i.e. `gunicorn`.
 Here's an example of how to use gunicorn to run replication manager app.
 
 ```
 pip install gunicorn
-gunicorn -b 127.0.0.1:5000 repmgr.application:app
+gunicorn -b 127.0.0.1:5000 clustermgr.application:app
 ```
 
 By default, the app runs in development mode. To run it in production mode, simply pass environment variable
 `APP_MODE=prod` to alter the mode.
 
 ```
-gunicorn -b 127.0.0.1:5000 -e APP_MODE=prod repmgr.application:app
+gunicorn -b 127.0.0.1:5000 -e APP_MODE=prod clustermgr.application:app
 ```

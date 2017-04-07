@@ -3,7 +3,7 @@ import shlex
 import subprocess
 
 
-DEFAULT_DATA_DIR = os.path.join(os.path.expanduser("~"), ".repmgr")
+DEFAULT_DATA_DIR = os.path.join(os.path.expanduser("~"), ".clustermgr")
 JAVALIBS_DIR = os.path.join(DEFAULT_DATA_DIR, "javalibs")
 JKS_PATH = os.path.join(DEFAULT_DATA_DIR, "oxauth-keys.jks")
 

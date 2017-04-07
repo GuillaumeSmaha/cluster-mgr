@@ -17,7 +17,7 @@ class Config(object):
     SCHEDULE_REFRESH = 30.0
     DATA_DIR = os.environ.get(
         "DATA_DIR",
-        os.path.join(os.path.expanduser("~"), ".repmgr"),
+        os.path.join(os.path.expanduser("~"), ".clustermgr"),
     )
     APP_INSTANCE_DIR = os.path.join(DATA_DIR, "instance")
     SCHEMA_DIR = os.path.join(DATA_DIR, "schema")
@@ -31,7 +31,7 @@ class ProductionConfig(Config):
 
 class DevelopmentConfig(Config):
     DEBUG = True
-    SQLALCHEMY_DATABASE_URI = "sqlite:///{}/repmgr.dev.db".format(Config.DATA_DIR)
+    SQLALCHEMY_DATABASE_URI = "sqlite:///{}/clustermgr.dev.db".format(Config.DATA_DIR)
     SQLALCHEMY_TRACK_MODIFICATIONS = True
 
 
