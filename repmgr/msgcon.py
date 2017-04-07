@@ -1,5 +1,6 @@
 import requests
 import urlparse
+import urllib
 
 
 class LogItem(object):
@@ -23,7 +24,7 @@ class LogCollection(object):
         self.page = data.get("page", {})
 
     def get_logs(self):
-        if not self.has_logs(self.key):
+        if not self.has_logs():
             return []
         return [LogItem(item) for item in self.embedded[self.key]]
 
@@ -63,7 +64,13 @@ class LogCollection(object):
 
 
 def get_audit_logs(base_url, page=0, size=20):
-    url = "{}/logger/api/oauth2-audit-logs".format(base_url)
+    qs = urllib.urlencode({
+        "sort": "id,desc",
+        "page": page,
+    })
+    url = "{}/logger/api/oauth2-audit-logs/search/query?{}".format(
+        base_url, qs,
+    )
     req = requests.get(url)
 
     if not req.ok:
@@ -72,7 +79,13 @@ def get_audit_logs(base_url, page=0, size=20):
 
 
 def get_server_logs(base_url, page=0, size=20):
-    url = "{}/logger/api/oxauth-server-logs?page".format(base_url)
+    qs = urllib.urlencode({
+        "sort": "id,desc",
+        "page": page,
+    })
+    url = "{}/logger/api/oxauth-server-logs/search/query?{}".format(
+        base_url, qs,
+    )
     req = requests.get(url)
 
     if not req.ok:

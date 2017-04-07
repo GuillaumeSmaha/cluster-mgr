@@ -426,13 +426,14 @@ def oxauth_server_log():
     err = ""
     logs = None
     server = LoggingServer.query.first()
+    page = request.args.get("page", 0)
 
     if not server:
         err = "Missing logging server configuration."
         return render_template("oxauth_server_log.html", logs=logs, err=err)
 
     try:
-        data, status_code = get_server_logs(server.url)
+        data, status_code = get_server_logs(server.url, page)
         logs = LogCollection("oxauth-server-logs", data)
         if not logs.has_logs():
             err = "Logs are not available at the moment. Please try again."
@@ -447,13 +448,14 @@ def oxauth_audit_log():
     err = ""
     logs = None
     server = LoggingServer.query.first()
+    page = request.args.get("page", 0)
 
     if not server:
         err = "Missing logging server configuration."
         return render_template("oxauth_audit_log.html", logs=logs, err=err)
 
     try:
-        data, status_code = get_audit_logs(server.url)
+        data, status_code = get_audit_logs(server.url, page)
         logs = LogCollection("oauth2-audit-logs", data)
         if not logs.has_logs():
             err = "Logs are not available at the moment. Please try again."
