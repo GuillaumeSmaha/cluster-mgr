@@ -99,11 +99,11 @@ gunicorn -b 127.0.0.1:5000 -e APP_MODE=prod clustermgr.application:app
 All delayed tasks are executed in background.
 
 ```
-celery -A clustermgr.application.celery worker
+APP_MODE=prod celery -A clustermgr.application.celery worker
 ```
 
 To run periodic tasks:
 
 ```
-celery -A clustermgr.application.celery beat
+APP_MODE=prod celery -A clustermgr.application.celery beat
 ```
