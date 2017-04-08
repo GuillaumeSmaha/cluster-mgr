@@ -12,9 +12,9 @@ from fabric.context_managers import settings
 from .application import celery, db, wlogger, app
 from .models import LDAPServer, AppConfiguration, KeyRotation, OxauthServer
 from .ldaplib import ldap_conn, search_from_ldap
-from .utils import decrypt_text
+from .utils import decrypt_text, random_chars
 from .ox11 import generate_key, delete_key
-from .keygen import generate_jks, JKS_PATH
+from .keygen import generate_jks
 
 ldap.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_NEVER)
 
@@ -290,7 +290,7 @@ def gen_slapd_gluu(taskid, conffile, version):
     status = run_command(taskid, chcmd(sloc, 'service solserver status'))
 
     if 'is running' in status:
-        wlogger.log("\n===>  Stopping LDAP Server")
+        wlogger.log(taskid, "\n===>  Stopping LDAP Server")
         run_command(taskid, chcmd(sloc, 'service solserver stop'))
 
     with cd('/opt/'+sloc+'/opt/symas/etc/openldap/'):
@@ -395,6 +395,8 @@ def modify_oxauth_config(kr, pub_keys=None, openid_jks_pass=""):
 
 @celery.task(bind=True)
 def rotate_pub_keys(t):
+    javalibs_dir = celery.conf["JAVALIBS_DIR"]
+    jks_path = celery.conf["JKS_PATH"]
     kr = KeyRotation.query.first()
 
     if not kr:
@@ -402,12 +404,10 @@ def rotate_pub_keys(t):
         return
 
     # do the key rotation background task
-    _rotate_keys(kr)
+    _rotate_keys(kr, javalibs_dir, jks_path)
 
 
-def _rotate_keys(kr):
-    from .utils import random_chars
-
+def _rotate_keys(kr, javalibs_dir, jks_path):
     pub_keys = []
     openid_jks_pass = random_chars()
 
@@ -433,14 +433,20 @@ def _rotate_keys(kr):
                 pub_keys = [out]
             elif status_code == 401:
                 print "insufficient access to call oxEleven API"
+            else:
+                print "unable to obtain the keys from oxEleven; " \
+                      "status code={}".format(status_code)
         except requests.exceptions.ConnectionError:
             print "unable to establish connection to oxEleven; skipping task"
     else:
-        # TODO: get pub keys from KeyGenerator (java jar)
-        out, err, retcode = generate_jks(openid_jks_pass)
+        out, err, retcode = generate_jks(
+            openid_jks_pass, javalibs_dir, jks_path,
+        )
         if retcode == 0:
             json_out = json.loads(out)
             pub_keys = json_out["keys"]
+        else:
+            print err
 
     # update LDAP entry
     if pub_keys and modify_oxauth_config(kr, pub_keys, openid_jks_pass):
@@ -462,7 +468,7 @@ def _rotate_keys(kr):
             for server in OxauthServer.query:
                 host = "root@{}".format(server.hostname)
                 with settings(warn_only=True):
-                    execute(_copy_jks, JKS_PATH, server.hostname, hosts=[host])
+                    execute(_copy_jks, jks_path, server.hostname, hosts=[host])
 
 
 @celery.task
@@ -479,9 +485,15 @@ def schedule_key_rotation():
         return
 
     # do the key rotation background task
-    _rotate_keys(kr)
+    javalibs_dir = celery.conf["JAVALIBS_DIR"]
+    jks_path = celery.conf["JKS_PATH"]
+    _rotate_keys(kr, javalibs_dir, jks_path)
 
 
 @celery.on_after_configure.connect
 def setup_periodic_tasks(sender, **kwargs):
-    sender.add_periodic_task(celery.conf['SCHEDULE_REFRESH'], schedule_key_rotation.s(), name='add every 30')
+    sender.add_periodic_task(
+        celery.conf['SCHEDULE_REFRESH'],
+        schedule_key_rotation.s(),
+        name='add every 30',
+    )

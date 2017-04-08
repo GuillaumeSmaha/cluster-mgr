@@ -19,6 +19,8 @@ class Config(object):
         "DATA_DIR",
         os.path.join(os.path.expanduser("~"), ".clustermgr"),
     )
+    JAVALIBS_DIR = os.path.join(DATA_DIR, "javalibs")
+    JKS_PATH = os.path.join(DATA_DIR, "oxauth-keys.jks")
     APP_INSTANCE_DIR = os.path.join(DATA_DIR, "instance")
     SCHEMA_DIR = os.path.join(DATA_DIR, "schema")
     SLAPDCONF_DIR = os.path.join(DATA_DIR, "slapdconf")

@@ -3,11 +3,6 @@ import shlex
 import subprocess
 
 
-DEFAULT_DATA_DIR = os.path.join(os.path.expanduser("~"), ".clustermgr")
-JAVALIBS_DIR = os.path.join(DEFAULT_DATA_DIR, "javalibs")
-JKS_PATH = os.path.join(DEFAULT_DATA_DIR, "oxauth-keys.jks")
-
-
 def exec_cmd(cmd):
     args = shlex.split(cmd)
     popen = subprocess.Popen(args,
@@ -19,21 +14,18 @@ def exec_cmd(cmd):
     return stdout, stderr, retcode
 
 
-def generate_jks(passwd, exp=365, alg="RS512"):
-    if not os.path.exists(JAVALIBS_DIR):
-        os.makedirs(JAVALIBS_DIR)
-
-    if os.path.exists(JKS_PATH):
-        os.unlink(JKS_PATH)
+def generate_jks(passwd, javalibs_dir, jks_path, exp=365, alg="RS512"):
+    if os.path.exists(jks_path):
+        os.unlink(jks_path)
 
     cmd = " ".join([
         "java", "-Dlog4j.defaultInitOverride=true",
-        "-cp", "'{}/*'".format(JAVALIBS_DIR),
+        "-cp", "'{}/*'".format(javalibs_dir),
         "org.xdi.oxauth.util.KeyGenerator",
         "-algorithms", alg,
         "-dnname", "{!r}".format("CN=oxAuth CA Certificates"),
         "-expiration", "{}".format(exp),
-        "-keystore", JKS_PATH,
+        "-keystore", jks_path,
         "-keypasswd", passwd,
     ])
     return exec_cmd(cmd)
