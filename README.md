@@ -4,11 +4,15 @@ GUI tool for managing Gluu Server OpenLDAP replication
 
 ## Installing Cluster Manager
 
+### OS Packages
+
 Install prerequisites packages first. On debian or ubuntu, install them using `apt-get`:
 
 ```
 sudo apt-get install build-essential libssl-dev libffi-dev python-dev openjdk-7-jre-headless
 ```
+
+### Java Libraries
 
 Note, OpenJDK or any JVM is required as Cluster Manager relies on several Java libraries.
 After prerequisites packages already installed, we need to get some Java JAR files and put them
@@ -39,6 +43,8 @@ wget -q https://ox.gluu.org/maven/org/gluu/oxeleven-model/3.0.0/oxeleven-model-3
 wget -q http://central.maven.org/maven2/org/jboss/resteasy/resteasy-jaxrs/2.3.7.Final/resteasy-jaxrs-2.3.7.Final.jar
 ```
 
+### Python Libraries
+
 Clone this repo or download the source manually.
 
 ```
@@ -46,14 +52,19 @@ cd /path/to/replication-mgr
 python setup.py install
 ```
 
+A successful installation will install a tool called `clustermgr-cli`.
+
 ## Running Cluster Manager
 
-A successful installation will install a tool called `clustermgr-cli`.
-Run the tool to initialize the database schema:
+### Sync Database Schema
+
+Run the tool to sync the database schema:
 
 ```
 clustermgr-cli db upgrade
 ```
+
+### App Configuration
 
 Before running the app, we need to create custom config file to override default configuration.
 Create a file at `$HOME/.clustermgr/instance/config.py`. Here's an example of custom `config.py`:
@@ -64,6 +75,8 @@ TESTING=False
 SQLALCHEMY_DATABASE_URI=/path/to/sqlite/db
 SECRET_KEY=unique-secret-string
 ```
+
+### Running Server App
 
 For development mode, we can execute `clustermgr-cli runserver`.
 For production mode, it is recommended to use reliable WSGI server i.e. `gunicorn`.
@@ -79,4 +92,18 @@ By default, the app runs in development mode. To run it in production mode, simp
 
 ```
 gunicorn -b 127.0.0.1:5000 -e APP_MODE=prod clustermgr.application:app
+```
+
+### Running Background Task
+
+All delayed tasks are executed in background.
+
+```
+celery -A clustermgr.application.celery worker
+```
+
+To run periodic tasks:
+
+```
+celery -A clustermgr.application.celery beat
 ```
