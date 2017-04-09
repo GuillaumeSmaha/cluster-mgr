@@ -268,9 +268,6 @@ def generate_slapd(taskid, conffile):
         wlogger.log(taskid, "\n===>  Debugging slapd...")
         run_command(taskid, "/opt/symas/lib64/slapd -d 1 "
                     "-f /opt/symas/etc/openldap/slapd.conf")
-    else:
-        wlogger.log(taskid, "\nNOTE: Setting up of LDAP server is complete. "
-                    "Initialize the server from the dashboard.")
 
 
 def chcmd(chdir, command):
@@ -308,9 +305,6 @@ def gen_slapd_gluu(taskid, conffile, version):
         wlogger.log(taskid, "\n===>  Debugging slapd...")
         run_command(taskid, chcmd(sloc, "/opt/symas/lib64/slapd -d 1 "
                     "-f /opt/symas/etc/openldap/slapd.conf"))
-    else:
-        wlogger.log(taskid, "\nNOTE: Setting up of LDAP server is complete. "
-                    "Initialize the server from the dashboard.")
 
 
 @celery.task(bind=True)
