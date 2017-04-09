@@ -1,4 +1,4 @@
-"""empty message
+"""adding gluu_server flags
 
 Revision ID: bd0784d138a8
 Revises: 2c3888be67c0
