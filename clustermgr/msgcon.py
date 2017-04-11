@@ -74,7 +74,7 @@ def get_audit_logs(base_url, page=0, size=20):
     req = requests.get(url)
 
     if not req.ok:
-        return [], req.status_code
+        return {}, req.status_code
     return req.json(), req.status_code
 
 
@@ -89,7 +89,7 @@ def get_server_logs(base_url, page=0, size=20):
     req = requests.get(url)
 
     if not req.ok:
-        return [], req.status_code
+        return {}, req.status_code
     return req.json(), req.status_code
 
 
