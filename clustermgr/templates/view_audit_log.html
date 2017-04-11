@@ -4,23 +4,39 @@
     {% if err %}
     <p class="alert alert-warning">{{ err }}</p>
     {% else %}
-        <dl class="dl-horizontal">
-            <dt>ID:</dt>
-            <dd>{{ log.id }}</dd>
-            <dt>Timestamp:</dt>
-            <dd>{{ log.timestamp }}</dd>
-            <dt>IP Address:</dt>
-            <dd>{{ log.ip }}</dd>
-            <dt>Client ID:</dt>
-            <dd>{{ log.clientId }}</dd>
-            <dt>Username:</dt>
-            <dd>{{ log.username }}</dd>
-            <dt>Scope:</dt>
-            <dd>{{ log.scope }}</dd>
-            <dt>Success:</dt>
-            <dd>{{ log.success }}</dd>
-            <dt>Action:</dt>
-            <dd>{{ log.action }}</dd>
-        </dl>
+    <table class="table table-bordered">
+        <tr>
+            <td><strong>ID</strong></td>
+            <td>{{ log.id }}</td>
+        </tr>
+        <tr>
+            <td><strong>Timestamp</strong></td>
+            <td>{{ log.timestamp }}</td>
+        </tr>
+        <tr>
+            <td><strong>IP Address</strong></td>
+            <td>{{ log.ip }}</td>
+        </tr>
+        <tr>
+            <td><strong>Client ID</strong><td>
+            <td>{{ log.clientId }}</td>
+        </tr>
+        <tr>
+            <td><strong>Username</strong></td>
+            <td>{{ log.username }}</td>
+        </tr>
+        <tr>
+            <td><strong>Scope</strong></td>
+            <td>{{ log.scope }}</td>
+        </tr>
+        <tr>
+            <td><strong>Success</strong></td>
+            <td>{{ log.success }}</td>
+        </tr>
+        <tr>
+            <td><strong>Action</strong></td>
+            <td>{{ log.action }}</td>
+        </tr>
+    </table>
     {% endif %}
 {% endblock %}

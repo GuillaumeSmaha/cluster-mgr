@@ -4,17 +4,27 @@
     {% if err %}
     <p class="alert alert-warning">{{ err }}</p>
     {% else %}
-        <dl class="dl-horizontal">
-            <dt>ID:</dt>
-            <dd>{{ log.id }}</dd>
-            <dt>Timestamp:</dt>
-            <dd>{{ log.timestamp }}</dd>
-            <dt>Message:</dt>
-            <dd>{{ log.formattedMessage }}</dd>
-            <dt>Logger Name:</dt>
-            <dd>{{ log.loggerName }}</dd>
-            <dt>Exceptions:</dt>
-            <dd>{{ log.exceptions|join("\n") }}</dd>
-        </dl>
+    <table class="table table-bordered">
+        <tr>
+            <td><strong>ID</strong></td>
+            <td>{{ log.id }}</td>
+        </tr>
+        <tr>
+            <td><strong>Timestamp</strong></td>
+            <td>{{ log.timestamp }}</td>
+        </tr>
+        <tr>
+            <td><strong>Message</strong></td>
+            <td>{{ log.formattedMessage }}</td>
+        </tr>
+        <tr>
+            <td><strong>Logger Name</strong></td>
+            <td>{{ log.loggerName }}</td>
+        </tr>
+        <tr>
+            <td><strong>Exceptions</strong></td>
+            <td>{{ log.exceptions|join("\n") }}</td>
+        </tr>
+    </table>
     {% endif %}
 {% endblock %}
