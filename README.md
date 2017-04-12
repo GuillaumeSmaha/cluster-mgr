@@ -72,7 +72,7 @@ Create a file at `$HOME/.clustermgr/instance/config.py`. Here's an example of cu
 ```
 DEBUG=False
 TESTING=False
-SQLALCHEMY_DATABASE_URI=/path/to/sqlite/db
+SQLALCHEMY_DATABASE_URI=/path/to/sqlite/db  # example: sqlite:////opt/cluster-mgr/clustermgr.db
 SECRET_KEY=unique-secret-string
 ```
 
