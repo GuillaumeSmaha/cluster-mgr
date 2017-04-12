@@ -2,10 +2,8 @@ $(function() {
     // delegate button to listen on click event
     // we're using delegation as the button is dynamically removed/created after calling AJAX
     $("#oxauth-servers-container").on("click", "#remove-oxauth",function() {
-        var srv_id = "";
-
         $("#oxauth-servers input:checked").each(function(){
-            srv_id = $(this).attr("data");
+            var srv_id = $(this).attr("data");
             $.post(
                 "/api/oxauth_server/" + srv_id,
                 {},
@@ -14,11 +12,9 @@ $(function() {
 
                     if ($("#oxauth-servers tr[id*=oxauth-server]").length == 0) {
                         $("#oxauth-servers-container").html("");
-
                     }
                 }
             );
-
         });
     });
 
