@@ -97,3 +97,4 @@ clustermgr/schema/*.*
 celerybeat-schedule.*
 celerybeat.pid
 *.db
+celeryd.*
