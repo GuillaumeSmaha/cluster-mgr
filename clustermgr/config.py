@@ -36,6 +36,12 @@ class Config(object):
 class ProductionConfig(Config):
     SQLALCHEMY_DATABASE_URI = ''
     SECRET_KEY = ''
+    DATA_DIR = os.environ.get("DATA_DIR", "/opt/gluu-cluster-mgr")
+    JAVALIBS_DIR = os.path.join(DATA_DIR, "javalibs")
+    JKS_PATH = os.path.join(DATA_DIR, "oxauth-keys.jks")
+    APP_INSTANCE_DIR = os.path.join(DATA_DIR, "instance")
+    SCHEMA_DIR = os.path.join(DATA_DIR, "schema")
+    SLAPDCONF_DIR = os.path.join(DATA_DIR, "slapdconf")
 
 
 class DevelopmentConfig(Config):
