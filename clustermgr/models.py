@@ -70,6 +70,13 @@ class KeyRotation(db.Model):
     # inum appliance, useful for searching oxAuth config in LDAP
     inum_appliance = db.Column(db.String(255))
 
+    # remote path of oxauth-keys.jks file,
+    # i.e. /opt/gluu-server-3.0.1/etc/certs/oxauth-keys.jks
+    jks_remote_path = db.Column(
+        db.String(255),
+        default="/opt/gluu-server-3.0.1/etc/certs/oxauth-keys.jks",
+    )
+
     def should_rotate(self):
         # determine whether we need to rotate the key
         if not self.rotated_at:
