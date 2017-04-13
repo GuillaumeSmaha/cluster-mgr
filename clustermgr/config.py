@@ -1,4 +1,5 @@
 import os
+from datetime import timedelta
 
 
 class Config(object):
@@ -18,7 +19,7 @@ class Config(object):
     CELERYBEAT_SCHEDULE = {
         'add-every-30-seconds': {
             'task': 'clustermgr.tasks.schedule_key_rotation',
-            'schedule': SCHEDULE_REFRESH,
+            'schedule': timedelta(seconds=SCHEDULE_REFRESH),
             'args': (),
         },
     }
