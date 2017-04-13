@@ -484,7 +484,8 @@ def schedule_key_rotation():
     _rotate_keys(kr, javalibs_dir, jks_path)
 
 
-@celery.on_after_configure.connect
+# disabled for backward-compatibility with celery 3.x
+#@celery.on_after_configure.connect
 def setup_periodic_tasks(sender, **kwargs):
     sender.add_periodic_task(
         celery.conf['SCHEDULE_REFRESH'],

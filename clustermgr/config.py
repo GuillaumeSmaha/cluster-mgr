@@ -15,6 +15,13 @@ class Config(object):
     REDIS_LOG_DB = 0
     OX11_PORT = '8190'
     SCHEDULE_REFRESH = 30.0
+    CELERYBEAT_SCHEDULE = {
+        'add-every-30-seconds': {
+            'task': 'clustermgr.tasks.schedule_key_rotation',
+            'schedule': SCHEDULE_REFRESH,
+            'args': (),
+        },
+    }
     DATA_DIR = os.environ.get(
         "DATA_DIR",
         os.path.join(os.path.expanduser("~"), ".clustermgr"),
