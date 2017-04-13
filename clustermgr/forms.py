@@ -1,4 +1,7 @@
-from flask_wtf import FlaskForm
+try:
+    from flask_wtf import FlaskForm
+except ImportError:
+    from flask_wtf import Form as FlaskForm
 from wtforms import StringField, SelectField, BooleanField, IntegerField, \
     PasswordField, RadioField, SubmitField
 from wtforms.validators import DataRequired, Regexp, AnyOf, \
