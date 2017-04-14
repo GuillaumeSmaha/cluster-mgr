@@ -19,9 +19,8 @@ def generate_jks(passwd, javalibs_dir, jks_path, exp=365, alg="RS512"):
         os.unlink(jks_path)
 
     cmd = " ".join([
-        "java", "-Dlog4j.defaultInitOverride=true",
-        "-cp", "'{}/*'".format(javalibs_dir),
-        "org.xdi.oxauth.util.KeyGenerator",
+        "java",
+        "-jar", os.path.join(javalibs_dir, "keygen.jar"),
         "-algorithms", alg,
         "-dnname", "{!r}".format("CN=oxAuth CA Certificates"),
         "-expiration", "{}".format(exp),

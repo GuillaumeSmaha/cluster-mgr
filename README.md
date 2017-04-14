@@ -20,27 +20,7 @@ in predefined data directory (by default the location is `$HOME/.clustermgr/java
 
 ```
 mkdir -p $HOME/.clustermgr/javalibs
-cd $HOME/.clustermgr/javalibs
-wget -q http://central.maven.org/maven2/org/bouncycastle/bcpkix-jdk15on/1.54/bcpkix-jdk15on-1.54.jar
-wget -q http://central.maven.org/maven2/org/bouncycastle/bcprov-jdk15on/1.54/bcprov-jdk15on-1.54.jar
-wget -q http://central.maven.org/maven2/commons-cli/commons-cli/1.3.1/commons-cli-1.3.1.jar
-wget -q http://central.maven.org/maven2/commons-codec/commons-codec/1.7/commons-codec-1.7.jar
-wget -q http://central.maven.org/maven2/commons-io/commons-io/2.4/commons-io-2.4.jar
-wget -q http://central.maven.org/maven2/commons-lang/commons-lang/2.6/commons-lang-2.6.jar
-wget -q http://central.maven.org/maven2/commons-logging/commons-logging/1.1.1/commons-logging-1.1.1.jar
-wget -q http://central.maven.org/maven2/com/google/guava/guava/19.0/guava-19.0.jar
-wget -q http://central.maven.org/maven2/org/apache/httpcomponents/httpclient/4.3.6/httpclient-4.3.6.jar
-wget -q http://central.maven.org/maven2/org/apache/httpcomponents/httpcore/4.3.3/httpcore-4.3.3.jar
-wget -q http://central.maven.org/maven2/org/jboss/resteasy/jaxrs-api/2.3.7.Final/jaxrs-api-2.3.7.Final.jar
-wget -q http://central.maven.org/maven2/org/codehaus/jettison/jettison/1.3/jettison-1.3.jar
-wget -q http://central.maven.org/maven2/org/apache/logging/log4j/log4j-1.2-api/2.7/log4j-1.2-api-2.7.jar
-wget -q http://central.maven.org/maven2/org/apache/logging/log4j/log4j-api/2.7/log4j-api-2.7.jar
-wget -q http://central.maven.org/maven2/org/apache/logging/log4j/log4j-core/2.7/log4j-core-2.7.jar
-wget -q https://ox.gluu.org/maven/org/xdi/oxauth-client/3.0.0/oxauth-client-3.0.0.jar
-wget -q https://ox.gluu.org/maven/org/xdi/oxauth-model/3.0.0/oxauth-model-3.0.0.jar
-wget -q https://ox.gluu.org/maven/org/gluu/oxeleven-client/3.0.0/oxeleven-client-3.0.0.jar
-wget -q https://ox.gluu.org/maven/org/gluu/oxeleven-model/3.0.0/oxeleven-model-3.0.0.jar
-wget -q http://central.maven.org/maven2/org/jboss/resteasy/resteasy-jaxrs/2.3.7.Final/resteasy-jaxrs-2.3.7.Final.jar
+wget http://ox.gluu.org/maven/org/xdi/oxauth-client/3.1.0-SNAPSHOT/oxauth-client-3.1.0-SNAPSHOT-jar-with-dependencies.jar -O $HOME/.clustermgr/javalibs/keygen.jar
 ```
 
 ### Python Libraries
