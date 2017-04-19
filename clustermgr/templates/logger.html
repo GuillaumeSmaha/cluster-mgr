@@ -62,12 +62,10 @@ function updateLog(){
             clearInterval(timer);
             $('.progress').hide();
             if (errors){
-                var err_msg = "Errors were found when checking the server for requirements. Fix them in the server and refresh this page to try again.";
+                var err_msg = "Errors were found. Fix them in the server and refresh this page to try again.";
                 $('#logger').append(logitem(err_msg, 'warning'));
                 $('#retry').show();
             } else {
-                var info_msg = "The server is now configured to act as the provider. Initialize the server from dashboard to finish setup."
-                $('#logger').append(logitem(info_msg, 'info'));
                 $('#home').show();
             }
         }
