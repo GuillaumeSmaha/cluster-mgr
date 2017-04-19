@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% from 'macros.html' import render_form %}
+{% block  content %}
+<h2 class="page-header">Upload LDIF</h2>
+<form action="" method="post" enctype="multipart/form-data">
+  {{form.csrf_token}}
+  <div class="form-group {% if form.ldif.errors %}has-error{% endif %}">
+    <label for="ldif" class="control-label">LDIF file exported by the slapcat utility</label>
+    {{ form.ldif(class="form-control") }}
+        {% if form.ldif.errors %}
+            {% for e in form.ldif.errors %}
+                <p class="help-block">{{ e }}</p>
+            {% endfor %}
+        {% endif %}
+  </div>
+  <button type="submit" class="btn btn-primary">Upload LDIF</button>
+</form>
+{% endblock %}

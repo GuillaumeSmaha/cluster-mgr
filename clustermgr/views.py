@@ -13,7 +13,8 @@ from .application import app, db, celery, wlogger
 from .models import LDAPServer, AppConfiguration, KeyRotation, \
     OxauthServer, LoggingServer
 from .forms import NewProviderForm, NewConsumerForm, AppConfigForm, \
-    NewMirrorModeForm, KeyRotationForm, SchemaForm, LoggingServerForm
+    NewMirrorModeForm, KeyRotationForm, SchemaForm, LoggingServerForm, \
+    LDIFForm
 from .tasks import initialize_provider, replicate, setup_server, \
     rotate_pub_keys
 from .utils import ldap_encode
@@ -144,8 +145,9 @@ def setup_provider(server_id, step):
         conffile = os.path.join(app.config['SLAPDCONF_DIR'],
                                 "{0}_slapd.conf".format(server_id))
         task = setup_server.delay(server_id, conffile)
-        return render_template("provider_setup_3.html", server=s, task=task,
-                               step=step)
+        head = "Setting up provider"
+        return render_template("logger.html", heading=head, server=s,
+                               task=task)
 
 
 def generate_conf(server):
@@ -325,11 +327,23 @@ def mirror(sid1, sid2):
     return jsonify({'url1': url1, 'url2': url2})
 
 
+@app.route('/server/<int:server_id>/ldif_upload/', methods=["GET", "POST"])
+def ldif_upload(server_id):
+    form = LDIFForm()
+    if form.validate_on_submit():
+        f = form.ldif.data
+        filename = "{0}_{1}".format(server_id, 'init.ldif')
+        f.save(os.path.join(app.config['LDIF_DIR'], filename))
+        return redirect(url_for('initialize', server_id=server_id)+"?ldif=1")
+    return render_template('ldif_upload.html', form=form)
+
+
 @app.route('/initialize/<int:server_id>/')
 def initialize(server_id):
     """Initialize function establishes starttls connection, authenticates
     and adds the replicator account to the o=gluu suffix."""
     server = LDAPServer.query.get(server_id)
+    use_ldif = bool(request.args.get('ldif', 0))
     if not server:
         return redirect(url_for('error', error='invalid-id-for-init'))
     if server.role != 'provider':
@@ -337,8 +351,10 @@ def initialize(server_id):
               "provider. Nothing done." % server.hostname, "warning")
         return redirect(url_for('home'))
 
-    task = initialize_provider.delay(server_id)
-    return render_template('initialize.html', server=server, task=task)
+    task = initialize_provider.delay(server_id, use_ldif)
+    head = "Initializing server"
+    return render_template('logger.html', heading=head, server=server,
+                           task=task)
 
 
 @app.route('/log/<task_id>')

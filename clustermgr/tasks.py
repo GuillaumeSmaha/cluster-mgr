@@ -21,12 +21,37 @@ from .keygen import generate_jks
 ldap.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_NEVER)
 
 
+def run_command(taskid, command):
+    outlog = StringIO.StringIO()
+    errlog = StringIO.StringIO()
+
+    wlogger.log(taskid, command, "debug")
+    output = run(command, stdout=outlog, stderr=errlog)
+    if outlog.getvalue():
+        wlogger.log(taskid, outlog.getvalue(), "debug")
+    if errlog.getvalue():
+        wlogger.log(taskid, errlog.getvalue(), "error")
+
+    return output
+
+
+def import_ldif(taskid, ldiffile):
+    wlogger.log(taskid, "Copying {0} to /tmp/init.ldif".format(ldiffile),
+                "debug")
+    put(ldiffile, '/tmp/init.ldif')
+    run_command(taskid, 'service solserver stop')
+    run_command(taskid, '/opt/symas/bin/slapadd -b o=gluu -l /tmp/init.ldif')
+    run_command(taskid, 'service solserver start')
+    run_command(taskid, 'rm /tmp/init.ldif')
+
+
 @celery.task(bind=True)
-def initialize_provider(self, server_id):
+def initialize_provider(self, server_id, use_ldif):
     initialized = False
     server = LDAPServer.query.get(server_id)
     appconfig = AppConfiguration.query.get(1)
     dn = appconfig.replication_dn
+    taskid = self.request.id
     replication_user = [
         ('objectclass', [r'person']),
         ('cn', [r'{}'.format(
@@ -34,6 +59,14 @@ def initialize_provider(self, server_id):
         ('sn', [r'gluu']),
         ('userpassword', [str(appconfig.replication_pw)])
         ]
+
+    if use_ldif:
+        host = "root@{}".format(server.hostname)
+        ldiffile = os.path.join(app.config['LDIF_DIR'],
+                                "{0}_init.ldif".format(server_id))
+        with settings(warn_only=True):
+            wlogger.log(taskid, "Importing the LDIF file")
+            execute(import_ldif, self.request.id, ldiffile, hosts=[host])
 
     # Step 1: Connection
     wlogger.log(self.request.id, 'Connecting to {}'.format(server.hostname))
@@ -217,20 +250,6 @@ def replicate(self):
                 con.unbind()
 
     wlogger.log(taskid, 'Replication test Complete.', 'success')
-
-
-def run_command(taskid, command):
-    outlog = StringIO.StringIO()
-    errlog = StringIO.StringIO()
-
-    wlogger.log(taskid, command, "debug")
-    output = run(command, stdout=outlog, stderr=errlog)
-    if outlog.getvalue():
-        wlogger.log(taskid, outlog.getvalue(), "debug")
-    if errlog.getvalue():
-        wlogger.log(taskid, errlog.getvalue(), "error")
-
-    return output
 
 
 def generate_slapd(taskid, server, conffile):

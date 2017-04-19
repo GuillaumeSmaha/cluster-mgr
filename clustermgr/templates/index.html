@@ -27,7 +27,15 @@
         <td>{{ server.provider_id }}</td>
         <td>
             {% if server.role == "provider" and not server.initialized %}
-                <a class="btn btn-success btn-xs" href="{{ url_for('initialize', server_id=server.id) }}">Initialize</a>
+                <div class="btn-group">
+                    <button type="button" class="btn btn-sm btn-success dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                      Initialize <span class="caret"></span>
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><a href="{{ url_for('initialize', server_id=server.id)}}">Using Existing Data</a></li>
+                        <li><a href="{{ url_for('ldif_upload', server_id=server.id)}}">Using Exported LDIF</a></li>
+                    </ul>
+                </div>
             {% elif server.role == "provider" and server.initialized %}
                 <a class="btn btn-success btn-xs" href="{{ url_for('initialize', server_id=server.id) }}">Test Connection</a>
                 <a class="btn btn-primary btn-xs" href="{{ url_for('new_consumer') }}">Add Consumer</a>

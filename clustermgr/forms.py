@@ -6,7 +6,7 @@ from wtforms import StringField, SelectField, BooleanField, IntegerField, \
     PasswordField, RadioField, SubmitField
 from wtforms.validators import DataRequired, Regexp, AnyOf, \
     ValidationError, URL
-from flask_wtf.file import FileField, FileRequired
+from flask_wtf.file import FileField, FileRequired, FileAllowed
 
 
 class NewProviderForm(FlaskForm):
@@ -61,8 +61,18 @@ class AppConfigForm(FlaskForm):
 
 
 class SchemaForm(FlaskForm):
-    schema = FileField(validators=[FileRequired()])
+    schema = FileField(validators=[
+        FileRequired(),
+        FileAllowed(['schema'], 'OpenLDAP schema files only!')
+    ])
     upload = SubmitField("Upload Schema")
+
+
+class LDIFForm(FlaskForm):
+    ldif = FileField(validators=[
+        FileRequired(),
+        FileAllowed(['ldif'], 'OpenLDAP slapcat exported ldif files only!')
+    ])
 
 
 class KeyRotationForm(FlaskForm):

@@ -99,6 +99,8 @@ if not os.path.isdir(app.config['SCHEMA_DIR']):
     os.makedirs(app.config['SCHEMA_DIR'])
 if not os.path.isdir(app.config['SLAPDCONF_DIR']):
     os.makedirs(app.config['SLAPDCONF_DIR'])
+if not os.path.isdir(app.config['LDIF_DIR']):
+    os.makedirs(app.config['LDIF_DIR'])
 if not os.path.isdir(app.instance_path):
     os.makedirs(app.instance_path)
 

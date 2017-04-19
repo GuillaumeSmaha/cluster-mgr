@@ -32,6 +32,7 @@ class Config(object):
     APP_INSTANCE_DIR = os.path.join(DATA_DIR, "instance")
     SCHEMA_DIR = os.path.join(DATA_DIR, "schema")
     SLAPDCONF_DIR = os.path.join(DATA_DIR, "slapdconf")
+    LDIF_DIR = os.path.join(DATA_DIR, "ldif")
 
 
 class ProductionConfig(Config):
