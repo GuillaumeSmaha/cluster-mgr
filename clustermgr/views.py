@@ -280,6 +280,7 @@ def generate_mirror_conf(filename, template, s1, s2):
     with open(filename, 'w') as f:
         f.write(conf)
 
+
 @app.route('/mirror/<int:sid1>/<int:sid2>/', methods=['POST'])
 def mirror(sid1, sid2):
     s1 = LDAPServer.query.get(sid1)
@@ -358,19 +359,6 @@ def test_replication():
     task = replicate.delay()
     head = "Replication Test"
     return render_template('logger.html', heading=head, task=task)
-
-
-@app.route('/server/<int:server_id>/setup/', methods=['POST'])
-def configure_server(server_id):
-    filename = "{}_slapd.conf".format(server_id)
-    filepath = os.path.join(app.config['SLAPDCONF_DIR'], filename)
-    conf = request.form.get('conf')
-
-    with open(filepath, 'w') as f:
-        f.write(conf)
-
-    task_id = setup_server.delay(server_id, filepath)
-    return jsonify({'url': url_for('get_log', task_id=task_id)})
 
 
 @app.route("/key_rotation", methods=["GET", "POST"])
