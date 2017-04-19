@@ -129,7 +129,7 @@ def new_provider():
 @app.route('/provider/<int:server_id>/setup/<int:step>/', methods=['GET', 'POST'])
 def setup_provider(server_id, step):
     s = LDAPServer.query.get(server_id)
-    if step == 1 and s is None:
+    if step == 1 or s is None:
         return redirect(url_for('new_provider'))
     if step == 2:
         if request.method == 'POST':
@@ -155,14 +155,13 @@ def generate_conf(server):
     s = server
     conf = ''
     confile = os.path.join(app.root_path, "templates", "slapd",
-                           "provider.conf")
+                           s.role+".conf")
     with open(confile, 'r') as c:
         conf = c.read()
     vals = {"openldapTLSCACert": "",
             "openldapTLSCert": "",
             "openldapTLSKey": "",
             "encoded_ldap_pw": ldap_encode(s.admin_pw),
-            "mirror_conf": "",
             "server_id": s.id,
             "replication_dn": appconfig.replication_dn,
             "openldapSchemaFolder": "/opt/gluu/schema/openldap",
@@ -173,6 +172,15 @@ def generate_conf(server):
         vals["openldapTLSCert"] = 'TLSCertificateFile "%s"' % s.tls_servercert
     if s.tls_serverkey:
         vals["openldapTLSKey"] = 'TLSCertificateKeyFile "%s"' % s.tls_serverkey
+
+    if s.role == 'provider':
+        vals["mirror_conf"] = ""
+    elif s.role == 'consumer':
+        provider = LDAPServer.query.get(s.provider_id)
+        vals["r_id"] = provider.id
+        vals["phost"] = provider.hostname
+        vals["pport"] = provider.port
+        vals["r_pw"] = appconfig.replication_pw
 
     conf = conf.format(**vals)
     return conf
@@ -200,30 +208,36 @@ def new_consumer():
         s.admin_pw = form.admin_pw.data
         s.provider_id = form.provider.data
         s.gluu_server = False
-        s.gluu_version = None
 
         db.session.add(s)
         db.session.commit()
-
-        conf = ''
-        confile = os.path.join(app.root_path, "templates", "slapd",
-                               "consumer.conf")
-        with open(confile, 'r') as c:
-            conf = c.read()
-
-        appconfig = AppConfiguration.query.get(1)
-        provider = LDAPServer.query.get(s.provider_id)
-        conf_values = {"TLSCACert": s.tls_cacert,
-                       "TLSServerCert": s.tls_servercert,
-                       "TLSServerKey": s.tls_serverkey, "admin_pw": s.admin_pw,
-                       "phost": provider.hostname, "pport": provider.port,
-                       "r_id": provider.id, "r_pw": appconfig.replication_pw,
-                       "replication_dn": appconfig.replication_dn
-                       }
-        conf = conf.format(**conf_values)
-        return render_template("editor.html", config=conf, server=s)
-
+        return redirect(url_for('setup_consumer', server_id=s.id, step=2))
     return render_template('new_consumer.html', form=form)
+
+
+@app.route('/consumer/<int:server_id>/setup/<int:step>/', methods=['GET', 'POST'])
+def setup_consumer(server_id, step):
+    s = LDAPServer.query.get(server_id)
+    if step == 1 or s is None:
+        return redirect(url_for('new_consumer'))
+    if step == 2:
+        if request.method == 'POST':
+            conf = request.form['conf']
+            filename = os.path.join(app.config['SLAPDCONF_DIR'],
+                                    "{0}_slapd.conf".format(server_id))
+            with open(filename, 'w') as f:
+                f.write(conf)
+            return redirect(url_for("setup_consumer", server_id=server_id,
+                            step=3))
+        conf = generate_conf(s)
+        return render_template("provider_setup_2.html", server=s, config=conf)
+    elif step == 3:
+        conffile = os.path.join(app.config['SLAPDCONF_DIR'],
+                                "{0}_slapd.conf".format(server_id))
+        task = setup_server.delay(server_id, conffile)
+        head = "Setting up server: "+s.hostname
+        return render_template("logger.html", heading=head, server=s,
+                               task=task)
 
 
 @app.route('/new_mirrormode/', methods=['GET', 'POST'])
@@ -338,6 +352,16 @@ def ldif_upload(server_id):
     return render_template('ldif_upload.html', form=form)
 
 
+@app.route('/server/<int:server_id>/remove/')
+def remove_server(server_id):
+    s = LDAPServer.query.get(server_id)
+    flash('Server %s removed from cluster configuration.' % s.hostname,
+          "success")
+    db.session.delete(s)
+    db.session.commit()
+    return redirect(url_for('home'))
+
+
 @app.route('/initialize/<int:server_id>/')
 def initialize(server_id):
     """Initialize function establishes starttls connection, authenticates
@@ -370,7 +394,8 @@ def get_log(task_id):
 @app.route('/fulltest/run')
 def test_replication():
     task = replicate.delay()
-    return render_template('initialize.html', task=task)
+    head = "Replication Test"
+    return render_template('logger.html', heading=head, task=task)
 
 
 @app.route('/server/<int:server_id>/setup/', methods=['POST'])

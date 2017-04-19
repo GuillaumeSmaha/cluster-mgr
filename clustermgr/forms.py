@@ -22,14 +22,14 @@ class NewProviderForm(FlaskForm):
 
 
 class NewConsumerForm(FlaskForm):
+    provider = SelectField('Provider', coerce=int)
     hostname = StringField('Hostname', validators=[DataRequired()])
     port = IntegerField('Port', validators=[DataRequired()])
-    starttls = BooleanField('Use StartTLS for communication', default=False)
     admin_pw = PasswordField('LDAP Admin Password', validators=[DataRequired()])  # noqa
+    starttls = BooleanField('Use StartTLS for communication', default=False)
     tls_cacert = StringField('TLS CA Certificate')
     tls_servercert = StringField('TLS Server Certificate')
     tls_serverkey = StringField('TLS Server Cert Key')
-    provider = SelectField('Provider', coerce=int)
 
 
 class NewMirrorModeForm(FlaskForm):

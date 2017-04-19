@@ -253,6 +253,7 @@ def replicate(self):
 
 
 def generate_slapd(taskid, server, conffile):
+    wlogger.log(taskid, 'Starting preliminary checks')
     # 1. OpenLDAP is installed
     if exists('/opt/symas/bin/slaptest'):
         wlogger.log(taskid, 'Checking if OpenLDAP is installed', 'success')
@@ -265,9 +266,10 @@ def generate_slapd(taskid, server, conffile):
     if exists('/opt/symas/etc/openldap/symas-openldap.conf'):
         wlogger.log(taskid, 'Checking symas-openldap.conf exists', 'success')
     else:
-        wlogger.log(taskid, 'Checking if symas-openldap.conf exists', 'fail',
-                    debug_msg='Configure OpenLDAP with /opt/gluu/etc/openldap'
-                    '/symas-openldap.conf')
+        wlogger.log(taskid, 'Checking if symas-openldap.conf exists', 'fail')
+        wlogger.log(taskid, 'Configure OpenLDAP with /opt/gluu/etc/openldap'
+                    '/symas-openldap.conf', 'warning')
+        return
     # 3. Certificates
     if server.tls_cacert:
         if exists(server.tls_cacert):
