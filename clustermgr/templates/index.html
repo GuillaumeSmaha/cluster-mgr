@@ -38,7 +38,7 @@
                 </div>
             {% elif server.role == "provider" and server.initialized %}
                 <a class="btn btn-success btn-xs" href="{{ url_for('initialize', server_id=server.id) }}">Reinitialize</a>
-                <a class="btn btn-primary btn-xs" href="{{ url_for('new_consumer') }}">Add Consumer</a>
+                <a class="btn btn-primary btn-xs" href="{{ url_for('new_server', stype='consumer') }}">Add Consumer</a>
             {% endif %}
             <a class="btn btn-danger btn-xs" href="{{ url_for('remove_server', server_id=server.id) }}">Remove</a>
         </td>

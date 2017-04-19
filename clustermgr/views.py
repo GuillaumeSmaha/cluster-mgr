@@ -96,58 +96,47 @@ def setup_cluster(topology):
                         next=url_for('setup_cluster', topology=topology)))
 
     if topology == 'delta':
-        return redirect(url_for('new_provider'))
+        return redirect(url_for('new_server', stype='provider'))
     elif topology == 'mirrormode':
         return redirect(url_for('new_mirrormode'))
     else:
         return redirect(url_for('error_page', error='unknown-topology'))
 
 
-@app.route('/provider/', methods=['GET', 'POST'])
-def new_provider():
-    form = NewProviderForm()
+@app.route('/server/new/<stype>/', methods=['GET', 'POST'])
+def new_server(stype):
+    if stype == 'provider':
+        form = NewProviderForm()
+    elif stype == 'consumer':
+        form = NewConsumerForm()
+        form.provider.choices = [
+                (p.id, p.hostname) for p in LDAPServer.query.filter_by(
+                    role='provider').all()]
+        if len(form.provider.choices) == 0:
+            return redirect(url_for('error_page', error='no-provider'))
+
     if form.validate_on_submit():
         s = LDAPServer()
         s.hostname = form.hostname.data
         s.port = form.port.data
-        s.role = 'provider'
+        s.role = stype
         s.starttls = form.starttls.data
         s.tls_cacert = form.tls_cacert.data
         s.tls_servercert = form.tls_servercert.data
         s.tls_serverkey = form.tls_serverkey.data
         s.initialized = False
         s.admin_pw = form.admin_pw.data
-        s.provider = None
-        s.gluu_server = form.gluu_server.data
-        s.gluu_version = form.gluu_version.data
+        s.provider_id = None if stype == 'provider' else form.provider.data
+        s.gluu_server = form.gluu_server.data if stype == 'provider' else False
+        s.gluu_version = form.gluu_version.data if stype == 'provider' else None
         db.session.add(s)
         db.session.commit()
-        return redirect(url_for('setup_provider', server_id=s.id, step=2))
-    return render_template('new_provider.html', form=form)
+        return redirect(url_for('setup_ldap_server', server_id=s.id, step=2))
 
-
-@app.route('/provider/<int:server_id>/setup/<int:step>/', methods=['GET', 'POST'])
-def setup_provider(server_id, step):
-    s = LDAPServer.query.get(server_id)
-    if step == 1 or s is None:
-        return redirect(url_for('new_provider'))
-    if step == 2:
-        if request.method == 'POST':
-            conf = request.form['conf']
-            filename = os.path.join(app.config['SLAPDCONF_DIR'],
-                                    "{0}_slapd.conf".format(server_id))
-            with open(filename, 'w') as f:
-                f.write(conf)
-            return redirect(url_for("setup_provider", server_id=server_id, step=3))
-        conf = generate_conf(s)
-        return render_template("provider_setup_2.html", server=s, config=conf)
-    elif step == 3:
-        conffile = os.path.join(app.config['SLAPDCONF_DIR'],
-                                "{0}_slapd.conf".format(server_id))
-        task = setup_server.delay(server_id, conffile)
-        head = "Setting up provider"
-        return render_template("logger.html", heading=head, server=s,
-                               task=task)
+    if stype == 'provider':
+        return render_template('new_provider.html', form=form)
+    elif stype == 'consumer':
+        return render_template('new_consumer.html', form=form)
 
 
 def generate_conf(server):
@@ -176,50 +165,23 @@ def generate_conf(server):
     if s.role == 'provider':
         vals["mirror_conf"] = ""
     elif s.role == 'consumer':
-        provider = LDAPServer.query.get(s.provider_id)
-        vals["r_id"] = provider.id
-        vals["phost"] = provider.hostname
-        vals["pport"] = provider.port
+        vals["r_id"] = s.provider_id
+        vals["phost"] = s.provider.hostname
+        vals["pport"] = s.provider.port
         vals["r_pw"] = appconfig.replication_pw
 
     conf = conf.format(**vals)
     return conf
 
 
-@app.route('/new_consumer/', methods=['GET', 'POST'])
-def new_consumer():
-    form = NewConsumerForm(request.form)
-    form.provider.choices = [(p.id, p.hostname)
-                             for p in LDAPServer.query.filter_by(
-                                 role='provider').all()]
-    if len(form.provider.choices) == 0:
-        return redirect(url_for('error_page', error='no-provider'))
-
-    if form.validate_on_submit():
-        s = LDAPServer()
-        s.hostname = form.hostname.data
-        s.port = form.port.data
-        s.role = "consumer"
-        s.starttls = form.starttls.data
-        s.tls_cacert = form.tls_cacert.data
-        s.tls_servercert = form.tls_servercert.data
-        s.tls_serverkey = form.tls_serverkey.data
-        s.initialized = False
-        s.admin_pw = form.admin_pw.data
-        s.provider_id = form.provider.data
-        s.gluu_server = False
-
-        db.session.add(s)
-        db.session.commit()
-        return redirect(url_for('setup_consumer', server_id=s.id, step=2))
-    return render_template('new_consumer.html', form=form)
-
-
-@app.route('/consumer/<int:server_id>/setup/<int:step>/', methods=['GET', 'POST'])
-def setup_consumer(server_id, step):
+@app.route('/server/<int:server_id>/setup/<int:step>/', methods=['GET', 'POST'])
+def setup_ldap_server(server_id, step):
     s = LDAPServer.query.get(server_id)
-    if step == 1 or s is None:
-        return redirect(url_for('new_consumer'))
+    if step == 1:
+        return redirect(url_for('home'))
+    if s is None:
+        flash('Cannot find the server with ID: %s' % s.id, 'warning')
+        return redirect(url_for('home'))
     if step == 2:
         if request.method == 'POST':
             conf = request.form['conf']
@@ -227,10 +189,10 @@ def setup_consumer(server_id, step):
                                     "{0}_slapd.conf".format(server_id))
             with open(filename, 'w') as f:
                 f.write(conf)
-            return redirect(url_for("setup_consumer", server_id=server_id,
+            return redirect(url_for("setup_ldap_server", server_id=server_id,
                             step=3))
         conf = generate_conf(s)
-        return render_template("provider_setup_2.html", server=s, config=conf)
+        return render_template("conf_editor.html", server=s, config=conf)
     elif step == 3:
         conffile = os.path.join(app.config['SLAPDCONF_DIR'],
                                 "{0}_slapd.conf".format(server_id))
