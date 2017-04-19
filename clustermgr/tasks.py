@@ -3,11 +3,13 @@ import ldap
 import time
 import StringIO
 import json
+import re
 from datetime import datetime
 
 import requests
 from fabric.api import run, execute, cd, put
 from fabric.context_managers import settings
+from fabric.contrib.files import exists
 
 from .application import celery, db, wlogger, app
 from .models import LDAPServer, AppConfiguration, KeyRotation, OxauthServer
@@ -223,8 +225,8 @@ def run_command(taskid, command):
 
     wlogger.log(taskid, command, "debug")
     output = run(command, stdout=outlog, stderr=errlog)
-
-    wlogger.log(taskid, outlog.getvalue(), "debug")
+    if outlog.getvalue():
+        wlogger.log(taskid, outlog.getvalue(), "debug")
     if errlog.getvalue():
         wlogger.log(taskid, errlog.getvalue(), "error")
 
@@ -232,40 +234,52 @@ def run_command(taskid, command):
 
 
 def generate_slapd(taskid, conffile):
-    wlogger.log(taskid, "\n===> Creating Data and Schema Directories for LDAP")
-    run_command(taskid, 'mkdir -p /opt/gluu/data/main_db')
-    run_command(taskid, 'mkdir -p /opt/gluu/data/site_db')
+    wlogger.log(taskid, "Creating Data and Schema Directories for LDAP")
+    conf = open(conffile, 'r')
+    for line in conf:
+        if re.match('^directory', line):
+            folder = line.split()[1]
+            run_command(taskid, 'mkdir -p '+folder)
+
     run_command(taskid, 'mkdir -p /opt/gluu/schema/openldap')
+    run_command(taskid, 'mkdir -p /opt/gluu/schema/others')
+
+    wlogger.log(taskid, "Copying Schema files to server")
+    gluu_schemas = os.listdir(os.path.join(app.static_folder, 'schema'))
+    for schema in gluu_schemas:
+        out = put(os.path.join(app.static_folder, 'schema', schema),
+                  "/opt/gluu/schema/openldap/"+schema)
+        wlogger.log(taskid, out, "debug")
 
     schemas = os.listdir(app.config['SCHEMA_DIR'])
     if len(schemas):
-        wlogger.log(taskid, "\n===> Copying Custom Schema files to server")
         for schema in schemas:
-            put(os.path.join(app.root_path, "schema", schema),
-                "/opt/gluu/schema/openldap/"+schema)
+            out = put(os.path.join(app.config['SCHEMA_DIR'], schema),
+                      "/opt/gluu/schema/others/"+schema)
+            wlogger.log(taskid, out, "debug")
 
-    wlogger.log(taskid, "\n===>  Copying slapd.conf file to remote server")
+    wlogger.log(taskid, "Copying slapd.conf file to remote server")
     out = put(conffile, '/opt/symas/etc/openldap/slapd.conf')
     if out.failed:
         wlogger.log(taskid, "Failed to copy the slapd.conf file", "error")
 
-    wlogger.log(taskid, "\n===>  Checking status of LDAP server")
+    wlogger.log(taskid, "Checking status of LDAP server")
     status = run_command(taskid, 'service solserver status')
 
     if 'is running' in status:
-        wlogger.log("\n===>  Stopping LDAP Server")
+        wlogger.log(taskid, "Stopping LDAP Server")
         run_command(taskid, 'service solserver stop')
 
     with cd('/opt/symas/etc/openldap/'):
-        wlogger.log(taskid, "\n===>  Generating slad.d Online Configuration")
+        wlogger.log(taskid, "Generating slapd.d Online Configuration")
         run_command(taskid, 'rm -rf slapd.d')
         run_command(taskid, 'mkdir slapd.d')
         run_command(taskid, '/opt/symas/bin/slaptest -f slapd.conf -F slapd.d')
 
-    wlogger.log(taskid, "\n===>  Starting LDAP server")
+    wlogger.log(taskid, "Starting LDAP server")
     log = run_command(taskid, 'service solserver start')
     if 'failed' in log:
-        wlogger.log(taskid, "\n===>  Debugging slapd...")
+        wlogger.log(taskid, "Debugging slapd...")
         run_command(taskid, "/opt/symas/lib64/slapd -d 1 "
                     "-f /opt/symas/etc/openldap/slapd.conf")
 
@@ -318,6 +332,64 @@ def setup_server(self, server_id, conffile):
     else:
         with settings(warn_only=True):
             execute(generate_slapd, self.request.id, conffile, hosts=[host])
+
+
+def check_provider_requirements(taskid, server, conffile):
+    # 1. OpenLDAP is installed
+    if exists('/opt/symas/bin/slaptest'):
+        wlogger.log(taskid, 'Checking if OpenLDAP is installed', 'success')
+    else:
+        wlogger.log(taskid, 'Cheking if OpenLDAP is installed', 'fail')
+        wlogger.log(taskid, 'Kindly install OpenLDAP on the server and refresh'
+                    ' this page to try setup again.')
+        return
+    # 2. symas-openldap.conf file exists
+    if exists('/opt/symas/etc/openldap/symas-openldap.conf'):
+        wlogger.log(taskid, 'Checking symas-openldap.conf exists', 'success')
+    else:
+        wlogger.log(taskid, 'Checking if symas-openldap.conf exists', 'fail',
+                    debug_msg='Configure OpenLDAP with /opt/gluu/etc/openldap'
+                    '/symas-openldap.conf')
+    # 3. Certificates
+    if server.tls_cacert:
+        if exists(server.tls_cacert):
+            wlogger.log(taskid, 'Checking TLS CA Certificate', 'success')
+        else:
+            wlogger.log(taskid, 'Checking TLS CA Certificate', 'fail')
+    if server.tls_servercert:
+        if exists(server.tls_servercert):
+            wlogger.log(taskid, 'Checking TLS Server Certificate', 'success')
+        else:
+            wlogger.log(taskid, 'Checking TLS Server Certificate', 'fail')
+    if server.tls_serverkey:
+        if exists(server.tls_serverkey):
+            wlogger.log(taskid, 'Checking TLS Server Key', 'success')
+        else:
+            wlogger.log(taskid, 'Checking TLS Server Key', 'fail')
+    # 4. Schema files
+    conf = open(conffile, 'r')
+    wlogger.log(taskid, 'Checking for schema files included in slapd.conf')
+    for line in conf:
+        if re.match('^include*', line):
+            schemafile = line.split()[1]
+            # gluu.schema and custom.schema will be added during the setup
+            if 'gluu/schema/openldap/gluu.schema' in schemafile or \
+                    'gluu/schema/openldap/custom.schema' in schemafile:
+                        continue
+            if exists(schemafile):
+                wlogger.log(taskid, '==> %s' % schemafile, 'success')
+            else:
+                wlogger.log(taskid, '==> %s' % schemafile, 'fail')
+    conf.close()
+
+
+@celery.task(bind=True)
+def perform_provider_checks(self, server_id, conffile):
+    server = LDAPServer.query.get(server_id)
+    host = "root@{}".format(server.hostname)
+    with settings(warn_only=True):
+        execute(check_provider_requirements, self.request.id, server, conffile,
+                hosts=[host])
 
 
 def modify_oxauth_config(kr, pub_keys=None, openid_jks_pass=""):

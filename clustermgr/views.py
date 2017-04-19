@@ -2,7 +2,7 @@ import os
 
 import requests
 from flask import render_template, redirect, url_for, flash, request, jsonify,\
-    session
+    session, abort
 from werkzeug.utils import secure_filename
 from celery.result import AsyncResult
 
@@ -15,7 +15,7 @@ from .models import LDAPServer, AppConfiguration, KeyRotation, \
 from .forms import NewProviderForm, NewConsumerForm, AppConfigForm, \
     NewMirrorModeForm, KeyRotationForm, SchemaForm, LoggingServerForm
 from .tasks import initialize_provider, replicate, setup_server, \
-    rotate_pub_keys
+    rotate_pub_keys, perform_provider_checks
 from .utils import ldap_encode
 from .utils import encrypt_text
 from .utils import generate_random_key
@@ -95,7 +95,6 @@ def setup_cluster(topology):
                         next=url_for('setup_cluster', topology=topology)))
 
     if topology == 'delta':
-        flash('Configure a provider to begin managing the cluster.', 'info')
         return redirect(url_for('new_provider'))
     elif topology == 'mirrormode':
         return redirect(url_for('new_mirrormode'))
@@ -103,10 +102,9 @@ def setup_cluster(topology):
         return redirect(url_for('error_page', error='unknown-topology'))
 
 
-@app.route('/new_provider/', methods=['GET', 'POST'])
+@app.route('/provider/', methods=['GET', 'POST'])
 def new_provider():
-    form = NewProviderForm(request.form)
-    appconfig = AppConfiguration.query.first()
+    form = NewProviderForm()
     if form.validate_on_submit():
         s = LDAPServer()
         s.hostname = form.hostname.data
@@ -123,25 +121,65 @@ def new_provider():
         s.gluu_version = form.gluu_version.data
         db.session.add(s)
         db.session.commit()
-
-        conf = ''
-        confile = os.path.join(app.root_path, "templates", "slapd",
-                               "provider.conf")
-        with open(confile, 'r') as c:
-            conf = c.read()
-        conf_values = {"openldapTLSCACert": s.tls_cacert,
-                       "openldapTLSCert": s.tls_servercert,
-                       "openldapTLSKey": s.tls_serverkey,
-                       "encoded_ldap_pw": ldap_encode(s.admin_pw),
-                       "mirror_conf": "",
-                       "server_id": s.id,
-                       "replication_dn": appconfig.replication_dn,
-                       "openldapSchemaFolder": "/opt/gluu/schema/openldap",
-                       "BCRYPT": "{BCRYPT}"}
-        conf = conf.format(**conf_values)
-        return render_template("editor.html", config=conf, server=s)
-
+        return redirect(url_for('setup_provider', server_id=s.id, step=2))
     return render_template('new_provider.html', form=form)
+
+
+@app.route('/provider/<int:server_id>/setup/<int:step>/', methods=['GET', 'POST'])
+def setup_provider(server_id, step):
+    s = LDAPServer.query.get(server_id)
+    if step == 1 and s is None:
+        return redirect(url_for('new_provider'))
+    if step == 2:
+        if request.method == 'POST':
+            conf = request.form['conf']
+            filename = os.path.join(app.config['SLAPDCONF_DIR'],
+                                    "{0}_slapd.conf".format(server_id))
+            with open(filename, 'w') as f:
+                f.write(conf)
+            return redirect(url_for("setup_provider", server_id=server_id, step=3))
+        conf = generate_conf(s)
+        return render_template("provider_setup_2.html", server=s, config=conf)
+    elif step == 3:
+        conffile = os.path.join(app.config['SLAPDCONF_DIR'],
+                                "{0}_slapd.conf".format(server_id))
+        task = perform_provider_checks.delay(server_id, conffile)
+        return render_template("provider_setup_3.html", server=s, task=task,
+                               step=step)
+    elif step == 4:
+        conffile = os.path.join(app.config['SLAPDCONF_DIR'],
+                                "{0}_slapd.conf".format(server_id))
+        task = setup_server.delay(server_id, conffile)
+        return render_template("provider_setup_3.html", server=s, task=task,
+                               step=step)
+
+
+def generate_conf(server):
+    appconfig = AppConfiguration.query.first()
+    s = server
+    conf = ''
+    confile = os.path.join(app.root_path, "templates", "slapd",
+                           "provider.conf")
+    with open(confile, 'r') as c:
+        conf = c.read()
+    vals = {"openldapTLSCACert": "",
+            "openldapTLSCert": "",
+            "openldapTLSKey": "",
+            "encoded_ldap_pw": ldap_encode(s.admin_pw),
+            "mirror_conf": "",
+            "server_id": s.id,
+            "replication_dn": appconfig.replication_dn,
+            "openldapSchemaFolder": "/opt/gluu/schema/openldap",
+            "BCRYPT": "{BCRYPT}"}
+    if s.tls_cacert:
+        vals["openldapTLSCACert"] = 'TLSCACertificateFile "%s"' % s.tls_cacert
+    if s.tls_servercert:
+        vals["openldapTLSCert"] = 'TLSCertificateFile "%s"' % s.tls_servercert
+    if s.tls_serverkey:
+        vals["openldapTLSKey"] = 'TLSCertificateKeyFile "%s"' % s.tls_serverkey
+
+    conf = conf.format(**vals)
+    return conf
 
 
 @app.route('/new_consumer/', methods=['GET', 'POST'])
@@ -251,15 +289,24 @@ def new_mirrormode():
 
 def generate_mirror_conf(filename, template, s1, s2):
     appconfig = AppConfiguration.query.get(1)
-    with open(filename, 'w') as f:
-        vals = {'TLSCACert': s1.tls_cacert, 'TLSServerCert': s1.tls_servercert,
-                'TLSServerKey': s1.tls_serverkey, 'admin_pw': s1.admin_pw,
-                'server_id': s1.id, 'r_id': s2.id, 'phost': s2.hostname,
-                'pport': s2.port, 'r_pw': appconfig.replication_pw,
-                'replication_dn': appconfig.replication_dn}
-        conf = template.format(**vals)
-        f.write(conf)
+    vals = {'openldapTLSCACert': "",
+            'openldapTLSCert': "",
+            'openldapTLSKey': "",
+            'admin_pw': s1.admin_pw,
+            'server_id': s1.id, 'r_id': s2.id, 'phost': s2.hostname,
+            'pport': s2.port, 'r_pw': appconfig.replication_pw,
+            'replication_dn': appconfig.replication_dn}
+    if s1.tls_cacert:
+        vals["openldapTLSCACert"] = "TLSCACertificateFile \"{}\"".format(s1.tls_cacert)
+    if s1.tls_servercert:
+        vals["openldapTLSCert"] = "TLSCertificateFile \"{}\"".format(s1.tls_servercert)
+    if s1.tls_serverkey:
+        vals["openldapTLSKey"] = "TLSCertificateKeyFile \"{}\"".format(s1.tls_serverkey)
 
+    conf = template.format(**vals)
+
+    with open(filename, 'w') as f:
+        f.write(conf)
 
 @app.route('/mirror/<int:sid1>/<int:sid2>/', methods=['POST'])
 def mirror(sid1, sid2):

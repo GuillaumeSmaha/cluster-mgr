@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+<form action="" method="post">
+<div class="panel panel-default" id="editor-panel">
+  <div class="panel-heading">Edit slapd.conf to suite any custom requirements</div>
+  <div class="panel-body" style="padding:0;">
+      <textarea name="conf" style="display: none;">{{ config }}</textarea>
+      <div id="editor" style="height: 600px;">{{ config }}</div>
+  </div>
+</div>
+<input type="submit" class="btn btn-primary" value="Setup Server" />
+</form>
+{% endblock content %}
+{% block js %}
+<script src="{{ url_for('static', filename='js/ace/ace.js') }}" type="text/javascript" charset="utf-8"></script>
+<script>
+    var editor = ace.edit("editor");
+    var textarea = $('textarea[name="conf"]').hide();
+    editor.setTheme("ace/theme/xcode");
+    editor.getSession().setMode("ace/mode/ini");
+    editor.getSession().on('change', function(){
+        textarea.val(editor.getSession().getValue());
+    });
+</script>
+{% endblock js %}
+ 
