@@ -1,6 +1,6 @@
 import os
+import sys
 import ldap
-import time
 import StringIO
 import json
 import re
@@ -143,7 +143,8 @@ def replicate(self):
 
     wlogger.log(taskid, 'Listing all providers')
     providers = LDAPServer.query.filter_by(role="provider").all()
-    wlogger.log(taskid, 'Available providers: {}'.format(len(providers)))
+    wlogger.log(taskid, 'Available providers: {}'.format(len(providers)),
+                "debug")
 
     for provider in providers:
         # connect to the server
@@ -155,7 +156,12 @@ def replicate(self):
             procon.bind_s('cn=directory manager,o=gluu', provider.admin_pw)
             wlogger.log(taskid, 'Connecting to the provider: {}'.format(
                 provider.hostname), 'success')
-            # add a entry to the server
+        except ldap.LDAPError as e:
+            wlogger.log(taskid, "Failed to connect to server. {0}".format(e),
+                        "error")
+            continue
+        # add a entry to the server
+        try:
             procon.add_s(dn, replication_user)
             wlogger.log(taskid,
                         'Adding the test entry {} to the provider'.format(dn),
@@ -164,7 +170,6 @@ def replicate(self):
             wlogger.log(taskid,
                         'Failed to add test data to provider. {}'.format(e),
                         'error')
-            continue
 
         consumers = provider.consumers
         wlogger.log(taskid,
@@ -188,24 +193,28 @@ def replicate(self):
                 continue
 
             # fetch the data from each consumer and verify the new entry exists
-            for i in range(5):
+            try:
                 if con.compare_s(dn, 'sn', 'gluu'):
                     wlogger.log(taskid,
                                 'Test data is replicated and available.',
                                 'success')
-                    break
                 else:
-                    wlogger.log(taskid,
-                                'Test data not found. Retrying in 3 secs.',
-                                'error')
-                    time.sleep(3)
+                    wlogger.log(taskid, 'Test data not found.', 'error')
+            except ldap.LDAPError as e:
+                wlogger.log(taskid, "Error comparing test data. {0}".format(e),
+                            "error")
             con.unbind()
 
         # delete the entry from the provider
-        persists = False
         try:
             procon.delete_s(dn)
+        except:
+            wlogger.log(taskid, sys.exc_info()[0])
+
+        persists = False
+        try:
             persists = procon.compare_s(dn, 'sn', 'gluu')
+            wlogger.log(taskid, "persistance value: {} ".format(persists), "debug")
             if persists:
                 wlogger.log(taskid, 'Delete operation failed. Data exists.',
                             'error')
@@ -231,13 +240,12 @@ def replicate(self):
             try:
                 if consumer.starttls:
                     con.start_tls_s()
-                persists = con.compare_s(dn, 'sn', 'gluu')
-                if persists:
+                if con.compare_s(dn, 'sn', 'gluu'):
                     wlogger.log(
                         taskid,
                         'Failed to remove test data from consumer: {}'.format(
                             consumer.hostname), 'error')
-                else:
+            except ldap.NO_SUCH_OBJECT:
                     wlogger.log(
                         taskid,
                         'Test data removed from the consumer: {}'.format(
