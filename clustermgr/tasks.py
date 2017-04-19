@@ -233,16 +233,51 @@ def run_command(taskid, command):
     return output
 
 
-def generate_slapd(taskid, conffile):
-    wlogger.log(taskid, "Creating Data and Schema Directories for LDAP")
+def generate_slapd(taskid, server, conffile):
+    # 1. OpenLDAP is installed
+    if exists('/opt/symas/bin/slaptest'):
+        wlogger.log(taskid, 'Checking if OpenLDAP is installed', 'success')
+    else:
+        wlogger.log(taskid, 'Cheking if OpenLDAP is installed', 'fail')
+        wlogger.log(taskid, 'Kindly install OpenLDAP on the server and refresh'
+                    ' this page to try setup again.')
+        return
+    # 2. symas-openldap.conf file exists
+    if exists('/opt/symas/etc/openldap/symas-openldap.conf'):
+        wlogger.log(taskid, 'Checking symas-openldap.conf exists', 'success')
+    else:
+        wlogger.log(taskid, 'Checking if symas-openldap.conf exists', 'fail',
+                    debug_msg='Configure OpenLDAP with /opt/gluu/etc/openldap'
+                    '/symas-openldap.conf')
+    # 3. Certificates
+    if server.tls_cacert:
+        if exists(server.tls_cacert):
+            wlogger.log(taskid, 'Checking TLS CA Certificate', 'success')
+        else:
+            wlogger.log(taskid, 'Checking TLS CA Certificate', 'fail')
+    if server.tls_servercert:
+        if exists(server.tls_servercert):
+            wlogger.log(taskid, 'Checking TLS Server Certificate', 'success')
+        else:
+            wlogger.log(taskid, 'Checking TLS Server Certificate', 'fail')
+    if server.tls_serverkey:
+        if exists(server.tls_serverkey):
+            wlogger.log(taskid, 'Checking TLS Server Key', 'success')
+        else:
+            wlogger.log(taskid, 'Checking TLS Server Key', 'fail')
+
+    wlogger.log(taskid, "Checking for data and schema folders for LDAP")
     conf = open(conffile, 'r')
     for line in conf:
         if re.match('^directory', line):
             folder = line.split()[1]
-            run_command(taskid, 'mkdir -p '+folder)
+            if not exists(folder):
+                run_command(taskid, 'mkdir -p '+folder)
+            else:
+                wlogger.log(taskid, folder, 'success')
 
-    run_command(taskid, 'mkdir -p /opt/gluu/schema/openldap')
-    run_command(taskid, 'mkdir -p /opt/gluu/schema/others')
+    if not exists('/opt/gluu/schema/openldap'):
+        run_command(taskid, 'mkdir -p /opt/gluu/schema/openldap')
 
     wlogger.log(taskid, "Copying Schema files to server")
     gluu_schemas = os.listdir(os.path.join(app.static_folder, 'schema'))
@@ -331,65 +366,8 @@ def setup_server(self, server_id, conffile):
                     server.gluu_version, hosts=[host])
     else:
         with settings(warn_only=True):
-            execute(generate_slapd, self.request.id, conffile, hosts=[host])
-
-
-def check_provider_requirements(taskid, server, conffile):
-    # 1. OpenLDAP is installed
-    if exists('/opt/symas/bin/slaptest'):
-        wlogger.log(taskid, 'Checking if OpenLDAP is installed', 'success')
-    else:
-        wlogger.log(taskid, 'Cheking if OpenLDAP is installed', 'fail')
-        wlogger.log(taskid, 'Kindly install OpenLDAP on the server and refresh'
-                    ' this page to try setup again.')
-        return
-    # 2. symas-openldap.conf file exists
-    if exists('/opt/symas/etc/openldap/symas-openldap.conf'):
-        wlogger.log(taskid, 'Checking symas-openldap.conf exists', 'success')
-    else:
-        wlogger.log(taskid, 'Checking if symas-openldap.conf exists', 'fail',
-                    debug_msg='Configure OpenLDAP with /opt/gluu/etc/openldap'
-                    '/symas-openldap.conf')
-    # 3. Certificates
-    if server.tls_cacert:
-        if exists(server.tls_cacert):
-            wlogger.log(taskid, 'Checking TLS CA Certificate', 'success')
-        else:
-            wlogger.log(taskid, 'Checking TLS CA Certificate', 'fail')
-    if server.tls_servercert:
-        if exists(server.tls_servercert):
-            wlogger.log(taskid, 'Checking TLS Server Certificate', 'success')
-        else:
-            wlogger.log(taskid, 'Checking TLS Server Certificate', 'fail')
-    if server.tls_serverkey:
-        if exists(server.tls_serverkey):
-            wlogger.log(taskid, 'Checking TLS Server Key', 'success')
-        else:
-            wlogger.log(taskid, 'Checking TLS Server Key', 'fail')
-    # 4. Schema files
-    conf = open(conffile, 'r')
-    wlogger.log(taskid, 'Checking for schema files included in slapd.conf')
-    for line in conf:
-        if re.match('^include*', line):
-            schemafile = line.split()[1]
-            # gluu.schema and custom.schema will be added during the setup
-            if 'gluu/schema/openldap/gluu.schema' in schemafile or \
-                    'gluu/schema/openldap/custom.schema' in schemafile:
-                        continue
-            if exists(schemafile):
-                wlogger.log(taskid, '==> %s' % schemafile, 'success')
-            else:
-                wlogger.log(taskid, '==> %s' % schemafile, 'fail')
-    conf.close()
-
-
-@celery.task(bind=True)
-def perform_provider_checks(self, server_id, conffile):
-    server = LDAPServer.query.get(server_id)
-    host = "root@{}".format(server.hostname)
-    with settings(warn_only=True):
-        execute(check_provider_requirements, self.request.id, server, conffile,
-                hosts=[host])
+            execute(generate_slapd, self.request.id, server,
+                    conffile, hosts=[host])
 
 
 def modify_oxauth_config(kr, pub_keys=None, openid_jks_pass=""):

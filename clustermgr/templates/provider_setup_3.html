@@ -1,10 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
-    {% if step == 3 %}
-        <h2 class="page-header">Running Checks</h2>
-    {% elif step == 4 %}
-        <h2 class="page-header">Setting up OpenLDAP server </h2>
-    {% endif %}
+    <h2 class="page-header">Setting up OpenLDAP server </h2>
 <div class="progress">
   <div class="progress-bar progress-bar-striped active" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100" style="width: 100%">
     <span class="sr-only">Running Checks</span>
@@ -15,11 +11,7 @@
 </ul>
 
 <button id="retry" class="btn btn-block btn-danger" style="display: none;">Retry</button>
-    {% if step == 3 %}
-        <a id="setup" class="btn btn-block btn-success" style="display: none;" href="{{ url_for('setup_provider', server_id=server.id, step=4) }}">Setup Server</a>
-    {% elif step == 4 %}
-        <a id="setup" class="btn btn-block btn-success" style="display: none;" href="{{ url_for('home') }}">Go to Dashboard</a>
-    {% endif %}
+<a id="home" class="btn btn-block btn-success" style="display: none;" href="{{ url_for('home') }}">Go to Dashboard</a>
 
 {% endblock content %}
 {% block js %}
@@ -75,7 +67,9 @@ function updateLog(){
                 $('#logger').append(logitem(err_msg, 'warning'));
                 $('#retry').show();
             } else {
-                $('#setup').show();
+                var info_msg = "The server is now configured to act as the provider. Initialize the server from dashboard to finish setup."
+                $('#logger').append(logitem(info_msg, 'info'));
+                $('#home').show();
             }
         }
     });

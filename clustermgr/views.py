@@ -2,7 +2,7 @@ import os
 
 import requests
 from flask import render_template, redirect, url_for, flash, request, jsonify,\
-    session, abort
+    session
 from werkzeug.utils import secure_filename
 from celery.result import AsyncResult
 
@@ -15,7 +15,7 @@ from .models import LDAPServer, AppConfiguration, KeyRotation, \
 from .forms import NewProviderForm, NewConsumerForm, AppConfigForm, \
     NewMirrorModeForm, KeyRotationForm, SchemaForm, LoggingServerForm
 from .tasks import initialize_provider, replicate, setup_server, \
-    rotate_pub_keys, perform_provider_checks
+    rotate_pub_keys
 from .utils import ldap_encode
 from .utils import encrypt_text
 from .utils import generate_random_key
@@ -141,12 +141,6 @@ def setup_provider(server_id, step):
         conf = generate_conf(s)
         return render_template("provider_setup_2.html", server=s, config=conf)
     elif step == 3:
-        conffile = os.path.join(app.config['SLAPDCONF_DIR'],
-                                "{0}_slapd.conf".format(server_id))
-        task = perform_provider_checks.delay(server_id, conffile)
-        return render_template("provider_setup_3.html", server=s, task=task,
-                               step=step)
-    elif step == 4:
         conffile = os.path.join(app.config['SLAPDCONF_DIR'],
                                 "{0}_slapd.conf".format(server_id))
         task = setup_server.delay(server_id, conffile)
