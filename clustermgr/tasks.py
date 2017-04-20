@@ -48,92 +48,70 @@ def import_ldif(taskid, ldiffile):
 @celery.task(bind=True)
 def initialize_provider(self, server_id, use_ldif):
     initialized = False
-    server = LDAPServer.query.get(server_id)
+    s = LDAPServer.query.get(server_id)
+    rootuser = 'cn=directory manager,o=gluu'
     appconfig = AppConfiguration.query.get(1)
-    dn = appconfig.replication_dn
+    repdn = appconfig.replication_dn
     taskid = self.request.id
     replication_user = [
         ('objectclass', [r'person']),
         ('cn', [r'{}'.format(
-            dn.replace("cn=", "").replace(",o=gluu", ""))]),
+            repdn.replace("cn=", "").replace(",o=gluu", ""))]),
         ('sn', [r'gluu']),
         ('userpassword', [str(appconfig.replication_pw)])
         ]
 
     if use_ldif:
-        host = "root@{}".format(server.hostname)
+        host = "root@{}".format(s.hostname)
         ldiffile = os.path.join(app.config['LDIF_DIR'],
                                 "{0}_init.ldif".format(server_id))
         with settings(warn_only=True):
             wlogger.log(taskid, "Importing the LDIF file")
             execute(import_ldif, self.request.id, ldiffile, hosts=[host])
 
-    # Step 1: Connection
-    wlogger.log(self.request.id, 'Connecting to {}'.format(server.hostname))
+    # Step 1: Add the Replication User DN
+    wlogger.log(taskid, 'Connecting to {}'.format(s.hostname))
+    with ldap_conn(s.hostname, s.port, rootuser, s.admin_pw, s.starttls) as con:
+        try:
+            con.add_s(repdn, replication_user)
+            wlogger.log(taskid, 'Replication user added.', 'success')
+        except ldap.ALREADY_EXISTS:
+            con.delete_s(repdn)
+            con.add_s(repdn, replication_user)
+            wlogger.log(taskid, 'Replication user added.', 'success')
+        except ldap.LDAPError as e:
+            wlogger.log(taskid, "Failed to add Replication user", "fail")
+            return
+    # Step 2: Reconnect as replication user
     try:
-        con = ldap.initialize('ldap://{}:{}'.format(
-            server.hostname, server.port))
-        if server.starttls:
+        con = ldap.initialize('ldap://{}:{}'.format(s.hostname, s.port))
+        if s.starttls:
             con.start_tls_s()
-        con.bind_s('cn=directory manager,o=gluu', server.admin_pw)
-        wlogger.log(self.request.id, 'Connection established.', 'success',
-                    step='conn')
-    except ldap.LDAPError as e:
-        if type(e.message) == dict and 'desc' in e.message:
-            wlogger.log(self.request.id, e.message['desc'], 'error',
-                        step='conn')
-        else:
-            wlogger.log(self.request.id, "%s" % e, 'error', step='conn')
-
-    # Step 2: Add replication user
-    wlogger.log(self.request.id, 'Adding the replication user.')
-    try:
-        con.add_s(dn, replication_user)
-        wlogger.log(self.request.id, 'Replication user added.', 'success',
-                    step='add')
-    except ldap.ALREADY_EXISTS:
-        con.delete_s(dn)
-        con.add_s(dn, replication_user)
-        wlogger.log(self.request.id, 'Replication user added.', 'success',
-                    step='add')
-    except ldap.LDAPError as e:
-        if type(e.message) == dict and 'desc' in e.message:
-            wlogger.log(self.request.id, e.message['desc'], 'error',
-                        step='add')
-        else:
-            wlogger.log(self.request.id, "%s" % e, 'error', step='add')
-    finally:
-        con.unbind()
-
-    # Step 3: Reconnect as replication user
-    wlogger.log(self.request.id, 'Authenticating as the Replicaiton DN.')
-    try:
-        con = ldap.initialize('ldap://{}:{}'.format(
-            server.hostname, server.port))
-        if server.starttls:
-            con.start_tls_s()
-        con.bind_s(dn, appconfig.replication_pw)
-        wlogger.log(self.request.id, 'Reconnecting as the replication user.',
-                    'success', step='recon')
+        con.bind_s(repdn, appconfig.replication_pw)
+        wlogger.log(taskid, "Authenticating as the Replicaiton DN.", "success")
+        initialized = True
+    except ldap.SERVER_DOWN:
+        con = ldap.initialize('ldaps://{}:{}'.format(s.hostname, s.port))
+        con.bind_s(repdn, appconfig.replication_pw)
+        wlogger.log(taskid, "Authenticating as the Replicaiton DN.", "success")
         initialized = True
     except ldap.LDAPError as e:
-        if type(e.message) == dict and 'desc' in e.message:
-            wlogger.log(self.request.id, e.message['desc'], 'error',
-                        step='recon')
-        else:
-            wlogger.log(self.request.id, "%s" % e, 'error', step='recon')
+        wlogger.log(taskid, "%s" % e, 'error')
     finally:
         con.unbind()
 
     if initialized:
-        server.initialized = True
-        db.session.add(server)
+        s.initialized = True
+        db.session.add(s)
         db.session.commit()
 
 
 @celery.task(bind=True)
 def replicate(self):
     taskid = self.request.id
+    wlogger.log(taskid, 'Listing all providers')
+    providers = LDAPServer.query.filter_by(role="provider").all()
+    rootdn = "cn=directory manager,o=gluu"
     dn = 'cn=testentry,o=gluu'
     replication_user = [
         ('objectclass', ['person']),
@@ -141,92 +119,53 @@ def replicate(self):
         ('sn', ['gluu']),
         ]
 
-    wlogger.log(taskid, 'Listing all providers')
-    providers = LDAPServer.query.filter_by(role="provider").all()
     wlogger.log(taskid, 'Available providers: {}'.format(len(providers)),
                 "debug")
-
     for provider in providers:
-        # connect to the server
-        procon = ldap.initialize('ldap://{}:{}'.format(
-            provider.hostname, provider.port))
         try:
-            if provider.starttls:
-                procon.start_tls_s()
-            procon.bind_s('cn=directory manager,o=gluu', provider.admin_pw)
-            wlogger.log(taskid, 'Connecting to the provider: {}'.format(
-                provider.hostname), 'success')
-        except ldap.LDAPError as e:
-            wlogger.log(taskid, "Failed to connect to server. {0}".format(e),
-                        "error")
-            continue
-        # add a entry to the server
-        try:
-            procon.add_s(dn, replication_user)
-            wlogger.log(taskid,
-                        'Adding the test entry {} to the provider'.format(dn),
-                        'success')
-        except ldap.LDAPError as e:
-            wlogger.log(taskid,
-                        'Failed to add test data to provider. {}'.format(e),
-                        'error')
+            with ldap_conn(provider.hostname, provider.port, rootdn,
+                           provider.admin_pw, provider.starttls) as con:
+                con.add_s(dn, replication_user)
+            wlogger.log(taskid, "Adding test data to provider {0}".format(
+                provider.hostname), "success")
+        except:
+            wlogger.log(taskid, "Adding test data to provider {0}".format(
+                provider.hostname), "fail")
+            wlogger.log(taskid, sys.exc_info()[0], "debug")
 
         consumers = provider.consumers
         wlogger.log(taskid,
-                    'Listing consumers linked to the provider {}'.format(
-                        provider.hostname))
-        # get list of all the consumers
+                    'Listing consumers of provider %s' % provider.hostname)
+        # Check the consumers 
         for consumer in consumers:
             wlogger.log(taskid, 'Verifying data in consumers: {} of {}'.format(
                 consumers.index(consumer)+1, len(consumers)))
-            con = ldap.initialize('ldap://{}:{}'.format(consumer.hostname,
-                                                        consumer.port))
             try:
-                if consumer.starttls:
-                    con.start_tls_s()
-                con.bind_s('cn=directory manager,o=gluu', consumer.admin_pw)
-                wlogger.log(taskid, 'Connecting to the consumer: {}'.format(
-                    consumer.hostname), 'success')
+                with ldap_conn(consumer.hostname, consumer.port, rootdn,
+                               consumer.admin_pw, consumer.starttls) as con:
+                    if con.compare_s(dn, 'sn', 'gluu'):
+                        wlogger.log(
+                            taskid,
+                            'Test data is replicated and available', 'success')
+            except ldap.NO_SUCH_OBJECT:
+                wlogger.log(taskid, 'Test data is NOT replicated.', 'fail')
             except ldap.LDAPError as e:
                 wlogger.log(taskid, 'Failed to connect to {0}. {1}'.format(
                                     consumer.hostname, e), 'error')
-                continue
-
-            # fetch the data from each consumer and verify the new entry exists
-            try:
-                if con.compare_s(dn, 'sn', 'gluu'):
-                    wlogger.log(taskid,
-                                'Test data is replicated and available.',
-                                'success')
-                else:
-                    wlogger.log(taskid, 'Test data not found.', 'error')
-            except ldap.LDAPError as e:
-                wlogger.log(taskid, "Error comparing test data. {0}".format(e),
-                            "error")
-            con.unbind()
 
         # delete the entry from the provider
         try:
-            procon.delete_s(dn)
-        except:
-            wlogger.log(taskid, sys.exc_info()[0])
-
-        persists = False
-        try:
-            persists = procon.compare_s(dn, 'sn', 'gluu')
-            wlogger.log(taskid, "persistance value: {} ".format(persists), "debug")
-            if persists:
-                wlogger.log(taskid, 'Delete operation failed. Data exists.',
-                            'error')
+            with ldap_conn(provider.hostname, provider.port, rootdn,
+                           provider.admin_pw, provider.starttls) as con:
+                con.delete_s(dn)
+                if con.compare_s(dn, 'sn', 'gluu'):
+                    wlogger.log(taskid, 'Delete operation failed. Data exists',
+                                'error')
         except ldap.NO_SUCH_OBJECT:
             wlogger.log(taskid, 'Deleting test data from provider: {}'.format(
                 provider.hostname), 'success')
-        except ldap.LDAPError as e:
-            wlogger.log(taskid,
-                        'Failed to delete test data from provider: {}'.format(
-                            provider.hostname), 'error')
-        finally:
-            procon.unbind()
+        except:
+            wlogger.log(taskid, sys.exc_info()[0])
 
         # verify the data is removed from the consumers
         for consumer in consumers:
@@ -234,17 +173,14 @@ def replicate(self):
                 taskid,
                 "Verifying data is removed from consumers: {} of {}".format(
                     consumers.index(consumer)+1, len(consumers)))
-            con = ldap.initialize('ldap://{}:{}'.format(consumer.hostname,
-                                                        consumer.port))
-            persists = False
             try:
-                if consumer.starttls:
-                    con.start_tls_s()
-                if con.compare_s(dn, 'sn', 'gluu'):
-                    wlogger.log(
-                        taskid,
-                        'Failed to remove test data from consumer: {}'.format(
-                            consumer.hostname), 'error')
+                with ldap_conn(consumer.hostname, consumer.port, rootdn,
+                               consumer.admin_pw, consumer.starttls) as con:
+                    if con.compare_s(dn, 'sn', 'gluu'):
+                        wlogger.log(
+                            taskid,
+                            'Failed to remove test data in consumer {}'.format(
+                                consumer.hostname), 'error')
             except ldap.NO_SUCH_OBJECT:
                     wlogger.log(
                         taskid,
@@ -254,10 +190,8 @@ def replicate(self):
                 wlogger.log(
                     taskid, 'Failed to test consumer: {0}. Error: {1}'.format(
                         consumer.hostname, e), 'error')
-            finally:
-                con.unbind()
 
-    wlogger.log(taskid, 'Replication test Complete.', 'success')
+    wlogger.log(taskid, 'Replication test Complete.')
 
 
 def generate_slapd(taskid, server, conffile):
