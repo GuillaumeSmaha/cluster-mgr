@@ -24,7 +24,8 @@ from .utils import generate_random_iv
 @app.route('/')
 def home():
     servers = LDAPServer.query.all()
-    return render_template('index.html', servers=servers)
+    config = AppConfiguration.query.first()
+    return render_template('index.html', servers=servers, config=config)
 
 
 @app.route('/error/<error>/')
@@ -184,12 +185,18 @@ def setup_ldap_server(server_id, step):
         conf = generate_conf(s)
         return render_template("conf_editor.html", server=s, config=conf)
     elif step == 3:
+        appconf = AppConfiguration.query.first()
+        provider_count = LDAPServer.query.filter_by(role='provider').count()
+        if appconf.topology == 'mirrormode' and provider_count == 1:
+            nextpage = 'provider'
+        else:
+            nextpage = 'dashboard'
         conffile = os.path.join(app.config['SLAPDCONF_DIR'],
                                 "{0}_slapd.conf".format(server_id))
         task = setup_server.delay(server_id, conffile)
         head = "Setting up server: "+s.hostname
         return render_template("logger.html", heading=head, server=s,
-                               task=task)
+                               task=task, nextpage=nextpage)
 
 
 @app.route('/server/<int:server_id>/ldif_upload/', methods=["GET", "POST"])

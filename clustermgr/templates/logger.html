@@ -11,7 +11,11 @@
 </ul>
 
 <button id="retry" class="btn btn-block btn-danger" style="display: none;">Retry</button>
-<a id="home" class="btn btn-block btn-success" style="display: none;" href="{{ url_for('home') }}">Go to Dashboard</a>
+{% if nextpage == 'provider' %}
+    <a id="home" class="btn btn-block btn-success" style="display: none;" href="{{ url_for('new_server', stype='provider') }}">Add Mirror</a>
+{% else %}
+    <a id="home" class="btn btn-block btn-success" style="display: none;" href="{{ url_for('home') }}">Go to Dashboard</a>
+{% endif %}
 
 {% endblock content %}
 {% block js %}
@@ -58,7 +62,7 @@ function updateLog(){
                 errors++;
             }
         }
-        if(data.state == "SUCCESS" || data.state == "FAILED"){
+        if(data.state == "SUCCESS" || data.state == "FAILURE"){
             clearInterval(timer);
             $('.progress').hide();
             if (errors){

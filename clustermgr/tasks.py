@@ -7,9 +7,10 @@ import re
 from datetime import datetime
 
 import requests
-from fabric.api import run, execute, cd, put
+from fabric.api import run, execute, cd, put, env
 from fabric.context_managers import settings
 from fabric.contrib.files import exists
+from ldap.modlist import modifyModlist
 
 from .application import celery, db, wlogger, app
 from .models import LDAPServer, AppConfiguration, KeyRotation, OxauthServer
@@ -19,6 +20,16 @@ from .ox11 import generate_key, delete_key
 from .keygen import generate_jks
 
 ldap.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_NEVER)
+
+
+class FabricException(Exception):
+    def __init__(self, value):
+        self.value = value
+
+    def __str__(self):
+        return repr(self.value)
+
+env.abort_exception = FabricException
 
 
 def run_command(taskid, command):
@@ -165,7 +176,7 @@ def replicate(self):
             wlogger.log(taskid, 'Deleting test data from provider: {}'.format(
                 provider.hostname), 'success')
         except:
-            wlogger.log(taskid, sys.exc_info()[0])
+            wlogger.log(taskid, sys.exc_info()[0], 'debug')
 
         # verify the data is removed from the consumers
         for consumer in consumers:
@@ -317,20 +328,115 @@ def gen_slapd_gluu(taskid, conffile, version):
         wlogger.log(taskid, "\n===>  Debugging slapd...")
         run_command(taskid, chcmd(sloc, "/opt/symas/lib64/slapd -d 1 "
                     "-f /opt/symas/etc/openldap/slapd.conf"))
+    return
+
+
+def get_olcdb_entry(result):
+    for r in result:
+        if re.match('^olcDatabase', r[0]):
+            if 'olcSuffix' in r[1] and 'o=gluu' in r[1]['olcSuffix']:
+                return (r[0], r[1])
+    return ('', '')
+
+
+def mirror(taskid, s1, s2):
+    appconf = AppConfiguration.query.first()
+    cnuser = 'cn=admin,cn=config'
+    # Prepare the conf for server1
+    vals = {'r_id': s2.id, 'phost': s2.hostname, 'pport': s2.port,
+            'replication_dn': appconf.replication_dn,
+            'replication_pw': appconf.replication_pw}
+    f = open(os.path.join(app.root_path, 'templates', 'slapd', 'mirror.conf'))
+    olcSyncrepl = f.read().format(**vals)
+    f.close()
+    # Find the dn of the o=gluu database in cn=config
+    with ldap_conn(s1.hostname, s1.port, cnuser, s1.admin_pw, s1.starttls) \
+            as con:
+        result = con.search_s("cn=config", ldap.SCOPE_SUBTREE,
+                              "(objectclass=olcMdbConfig)", [])
+        dn, dbconfig = get_olcdb_entry(result)
+        if not dbconfig:
+            wlogger.log(taskid, "Cannot find the Config for o=gluu database.",
+                        "error")
+            wlogger.log(taskid, result, 'debug')
+            return
+        if 'olcSyncrepl' in dbconfig:
+            modlist = modifyModlist(
+                    {'olcSyncrepl': dbconfig['olcSyncrepl']},
+                    {'olcSyncrepl': olcSyncrepl}
+                    )
+        else:
+            modlist = [(ldap.MOD_ADD, 'olcSyncrepl', olcSyncrepl)]
+
+        con.modify_s(dn, modlist)
+
+        if 'olcMirrorMode' in dbconfig:
+            modlist = modifyModlist(
+                    {'olcMirrorMode': dbconfig['olcMirrorMode']},
+                    {'olcMirrorMode': 'TRUE'}
+                    )
+        else:
+            modlist = [(ldap.MOD_ADD, 'olcMirrorMode', 'TRUE')]
+
+        con.modify_s(dn, modlist)
 
 
 @celery.task(bind=True)
 def setup_server(self, server_id, conffile):
     server = LDAPServer.query.get(server_id)
     host = "root@{}".format(server.hostname)
-    if server.gluu_server:
+    try:
         with settings(warn_only=True):
-            execute(gen_slapd_gluu, self.request.id, conffile,
-                    server.gluu_version, hosts=[host])
-    else:
-        with settings(warn_only=True):
-            execute(generate_slapd, self.request.id, server,
-                    conffile, hosts=[host])
+            if server.gluu_server:
+                execute(gen_slapd_gluu, self.request.id, conffile,
+                        server.gluu_version, hosts=[host])
+            else:
+                execute(generate_slapd, self.request.id, server,
+                        conffile, hosts=[host])
+    except FabricException as e:
+        wlogger.log(self.request.id, "Failed setting up server. %s" % e,
+                    "error")
+        return
+    # check for mirrormode and setup mirroring
+    appconf = AppConfiguration.query.first()
+    if appconf.topology == 'mirrormode':
+        providers = LDAPServer.query.all()
+        if len(providers) < 2:
+            wlogger.log(
+                self.request.id, "The cluster is configured to work in"
+                " Mirror Mode. Add another provider to setup Mirror Mode.")
+        if len(providers) == 2:
+            wlogger.log(
+                    self.request.id,
+                    "Setting up MirrorMode between the two providers.")
+            s1, s2 = providers
+            s1.provider_id = s2.id
+            s2.provider_id = s1.id
+            db.session.add(s1)
+            db.session.add(s2)
+            db.session.commit()
+            try:
+                mirror(self.request.id, s1, s2)
+                wlogger.log(
+                    self.request.id,
+                    "Mirroring {0} to {1}".format(s1.hostname, s2.hostname),
+                    "success")
+                mirror(self.request.id, s2, s1)
+                wlogger.log(
+                    self.request.id,
+                    "Mirroring {0} to {1}".format(s2.hostname, s1.hostname),
+                    "success")
+            except:
+                wlogger.log(
+                    self.request.id, "Mirroring encountered an exception",
+                    "fail")
+                wlogger.log(
+                    self.request.id, "%s" % sys.exc_info(), "debug")
+        elif len(providers) > 2:
+            wlogger.log(
+                self.request.id, "The cluster has more than 2 Providers."
+                "It should already be working in Mirror Mode. Check Dashboard."
+            )
 
 
 def modify_oxauth_config(kr, pub_keys=None, openid_jks_pass=""):
