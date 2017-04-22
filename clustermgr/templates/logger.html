@@ -57,7 +57,9 @@ function updateLog(){
         var logs = data.messages;
         var logged_msgs = $('.list-group-item').length;
         for(var i=logged_msgs; i<logs.length; i++){
-            $('#logger').append(logitem(logs[i].msg, logs[i].level));
+            var entry = logitem(logs[i].msg, logs[i].level);
+            $('#logger').append(entry);
+            entry.scrollIntoView(false);
             if(logs[i].level == 'error' || logs[i].level == 'fail'){
                 errors++;
             }
@@ -67,7 +69,9 @@ function updateLog(){
             $('.progress').hide();
             if (errors){
                 var err_msg = "Errors were found. Fix them in the server and refresh this page to try again.";
-                $('#logger').append(logitem(err_msg, 'warning'));
+                var entry = logitem(err_msg, 'warning');
+                $('#logger').append(entry);
+                entry.scrollIntoView(false);
                 $('#retry').show();
             } else {
                 $('#home').show();
