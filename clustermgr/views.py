@@ -123,7 +123,12 @@ def new_server(stype):
         s.gluu_server = form.gluu_server.data if stype == 'provider' else False
         s.gluu_version = form.gluu_version.data if stype == 'provider' else None
         db.session.add(s)
-        db.session.commit()
+        try:
+            db.session.commit()
+        except Exception as e:
+            flash("Failed to add new server {0}. Probably it is a duplicate."
+                  "".format(form.hostname.data), "danger")
+            return redirect(url_for('home'))
         return redirect(url_for('setup_ldap_server', server_id=s.id, step=2))
 
     if stype == 'provider':

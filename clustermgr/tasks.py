@@ -397,6 +397,12 @@ def setup_server(self, server_id, conffile):
         wlogger.log(self.request.id, "Failed setting up server. %s" % e,
                     "error")
         return
+    except:
+        wlogger.log(self.request.id,
+                    "Failed setting up server. %s" % sys.exc_info()[1],
+                    "error")
+        return
+
     # check for mirrormode and setup mirroring
     appconf = AppConfiguration.query.first()
     if appconf.topology == 'mirrormode':

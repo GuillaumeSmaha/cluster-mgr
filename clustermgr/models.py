@@ -9,7 +9,7 @@ from sqlalchemy.orm import relationship, backref
 class LDAPServer(db.Model):
     __tablename__ = "ldap_server"
     id = db.Column(db.Integer, primary_key=True)
-    hostname = db.Column(db.String(150))
+    hostname = db.Column(db.String(150), unique=True)
     port = db.Column(db.Integer)
     role = db.Column(db.String(10))
     starttls = db.Column(db.Boolean)
