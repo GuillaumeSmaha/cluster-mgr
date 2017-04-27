@@ -288,9 +288,8 @@ def generate_slapd(taskid, server, conffile):
     wlogger.log(taskid, "Starting LDAP server")
     log = run_command(taskid, 'service solserver start')
     if 'failed' in log:
-        wlogger.log(taskid, "Debugging slapd...")
-        run_command(taskid, "/opt/symas/lib64/slapd -d 1 "
-                    "-f /opt/symas/etc/openldap/slapd.conf")
+        wlogger.log(taskid, "Debugging slapd...", "fail")
+        run_command(taskid, "service solserver start -d 1")
 
 
 def chcmd(chdir, command):
@@ -304,6 +303,16 @@ def gen_slapd_gluu(taskid, conffile, version):
     # 2. symas-openldap.conf file is present inside CE
     # 3. Certificates are generate by setup.py and present
     # 4. Data directories are present in CE installation
+    wlogger.log(taskid, "Checking for data and schema folders for LDAP")
+    conf = open(conffile, 'r')
+    for line in conf:
+        if re.match('^directory', line):
+            folder = line.split()[1]
+            if not exists(os.path.join("/opt/"+sloc, folder)):
+                run_command(taskid, chcmd(sloc, 'mkdir -p '+folder))
+            else:
+                wlogger.log(taskid, folder, 'success')
+
     # 5. Gluu Schema files are present
     #
     # 6. Copy user's custom schema files
@@ -336,12 +345,19 @@ def gen_slapd_gluu(taskid, conffile, version):
         sloc, '/opt/symas/bin/slaptest -f /opt/symas/etc/openldap/slapd.conf '
         ' -F /opt/symas/etc/openldap/slapd.d'))
 
+    wlogger.log(taskid, "Setting ownership of sladp files")
+    run_command(taskid, chcmd(sloc, "chown -R ldap:ldap /opt/gluu/data"))
+    run_command(taskid,
+                chcmd(sloc, "chown -R ldap:ldap /opt/gluu/schema/openldap"))
+    run_command(
+        taskid,
+        chcmd(sloc, "chown -R ldap:ldap /opt/symas/etc/openldap/slapd.d"))
+
     wlogger.log(taskid, "Starting LDAP server")
     log = run_command(taskid, chcmd(sloc, 'service solserver start'))
     if 'failed' in log:
-        wlogger.log(taskid, "Debugging slapd...")
-        run_command(taskid, chcmd(sloc, "/opt/symas/lib64/slapd -d 1 "
-                    "-f /opt/symas/etc/openldap/slapd.conf"))
+        wlogger.log(taskid, "Debugging slapd...", "fail")
+        run_command(taskid, chcmd(sloc, "service solserver start -d 1"))
     return
 
 
