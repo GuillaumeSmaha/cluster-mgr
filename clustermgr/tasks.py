@@ -239,7 +239,7 @@ def generate_slapd(taskid, server, conffile):
             wlogger.log(taskid, 'Checking TLS Server Key', 'success')
         else:
             wlogger.log(taskid, 'Checking TLS Server Key', 'fail')
-
+    # 4. Data directories
     wlogger.log(taskid, "Checking for data and schema folders for LDAP")
     conf = open(conffile, 'r')
     for line in conf:
@@ -250,21 +250,21 @@ def generate_slapd(taskid, server, conffile):
             else:
                 wlogger.log(taskid, folder, 'success')
 
+    # 5. Copy Gluu Schema files
     if not exists('/opt/gluu/schema/openldap'):
         run_command(taskid, 'mkdir -p /opt/gluu/schema/openldap')
-
     wlogger.log(taskid, "Copying Schema files to server")
     gluu_schemas = os.listdir(os.path.join(app.static_folder, 'schema'))
     for schema in gluu_schemas:
         out = put(os.path.join(app.static_folder, 'schema', schema),
                   "/opt/gluu/schema/openldap/"+schema)
         wlogger.log(taskid, out, "debug")
-
+    # 6. Copy User's custom schema files
     schemas = os.listdir(app.config['SCHEMA_DIR'])
     if len(schemas):
         for schema in schemas:
             out = put(os.path.join(app.config['SCHEMA_DIR'], schema),
-                      "/opt/gluu/schema/others/"+schema)
+                      "/opt/gluu/schema/openldap/"+schema)
             wlogger.log(taskid, out, "debug")
 
     wlogger.log(taskid, "Copying slapd.conf file to remote server")
@@ -300,21 +300,35 @@ def chcmd(chdir, command):
 
 def gen_slapd_gluu(taskid, conffile, version):
     sloc = 'gluu-server-'+version
+    # 1. OpenLDAP is installed inside the container
+    # 2. symas-openldap.conf file is present inside CE
+    # 3. Certificates are generate by setup.py and present
+    # 4. Data directories are present in CE installation
+    # 5. Gluu Schema files are present
+    #
+    # 6. Copy user's custom schema files
+    wlogger.log(taskid, "Copying the custom schemas to the server.")
+    schemas = os.listdir(app.config['SCHEMA_DIR'])
+    if len(schemas):
+        for schema in schemas:
+            out = put(os.path.join(app.config['SCHEMA_DIR'], schema),
+                      "/opt/"+sloc+"/opt/gluu/schema/openldap/"+schema)
+            wlogger.log(taskid, out, "debug")
 
-    wlogger.log(taskid, "\n===>  Copying slapd.conf file to remote server")
+    wlogger.log(taskid, "Copying slapd.conf file to remote server")
     out = put(conffile, '/opt/'+sloc+'/opt/symas/etc/openldap/slapd.conf')
     if out.failed:
         wlogger.log(taskid, "Failed to copy the slapd.conf file", "error")
 
-    wlogger.log(taskid, "\n===>  Checking status of LDAP server")
+    wlogger.log(taskid, "Checking status of LDAP server")
     status = run_command(taskid, chcmd(sloc, 'service solserver status'))
 
     if 'is running' in status:
-        wlogger.log(taskid, "\n===>  Stopping LDAP Server")
+        wlogger.log(taskid, "Stopping LDAP Server")
         run_command(taskid, chcmd(sloc, 'service solserver stop'))
 
     with cd('/opt/'+sloc+'/opt/symas/etc/openldap/'):
-        wlogger.log(taskid, "\n===>  Generating slad.d Online Configuration")
+        wlogger.log(taskid, "Generating slad.d Online Configuration")
         run_command(taskid, 'rm -rf slapd.d')
         run_command(taskid, 'mkdir slapd.d')
 
@@ -322,10 +336,10 @@ def gen_slapd_gluu(taskid, conffile, version):
         sloc, '/opt/symas/bin/slaptest -f /opt/symas/etc/openldap/slapd.conf '
         ' -F /opt/symas/etc/openldap/slapd.d'))
 
-    wlogger.log(taskid, "\n===>  Starting LDAP server")
+    wlogger.log(taskid, "Starting LDAP server")
     log = run_command(taskid, chcmd(sloc, 'service solserver start'))
     if 'failed' in log:
-        wlogger.log(taskid, "\n===>  Debugging slapd...")
+        wlogger.log(taskid, "Debugging slapd...")
         run_command(taskid, chcmd(sloc, "/opt/symas/lib64/slapd -d 1 "
                     "-f /opt/symas/etc/openldap/slapd.conf"))
     return
