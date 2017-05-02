@@ -120,8 +120,8 @@ def new_server(stype):
         s.initialized = False
         s.admin_pw = form.admin_pw.data
         s.provider_id = None if stype == 'provider' else form.provider.data
-        s.gluu_server = form.gluu_server.data if stype == 'provider' else False
-        s.gluu_version = form.gluu_version.data if stype == 'provider' else None
+        s.gluu_server = form.gluu_server.data
+        s.gluu_version = form.gluu_version.data
         db.session.add(s)
         try:
             db.session.commit()
