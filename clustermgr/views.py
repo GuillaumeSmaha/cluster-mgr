@@ -83,11 +83,11 @@ def setup_cluster(topology):
     config = AppConfiguration.query.first()
     if not config:
         config = AppConfiguration()
-        config.topology = topology
-        db.session.add(config)
-        db.session.commit()
+    config.topology = topology
+    db.session.add(config)
+    db.session.commit()
 
-    if not config or not config.replication_dn or not config.replication_pw:
+    if not config.replication_dn or not config.replication_pw:
         flash("Replication Manager DN and Password needs to be set before "
               "cluster can be created. Kindly configure now.", "warning")
         return redirect(url_for('app_configuration',
@@ -165,6 +165,7 @@ def generate_conf(server):
         vals["phost"] = s.provider.hostname
         vals["pport"] = s.provider.port
         vals["r_pw"] = appconfig.replication_pw
+        vals["protocol"] = "ldap" if s.provider.starttls else "ldaps"
 
     conf = conf.format(**vals)
     return conf

@@ -142,7 +142,7 @@ def replicate(self):
         except:
             wlogger.log(taskid, "Adding test data to provider {0}".format(
                 provider.hostname), "fail")
-            wlogger.log(taskid, sys.exc_info()[0], "debug")
+            wlogger.log(taskid, str(sys.exc_info()[0]), "debug")
 
         consumers = provider.consumers
         wlogger.log(taskid,
