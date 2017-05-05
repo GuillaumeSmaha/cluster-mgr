@@ -50,14 +50,22 @@ def run_command(taskid, command):
     return output
 
 
-def import_ldif(taskid, ldiffile):
+def import_ldif(taskid, ldiffile, server):
     wlogger.log(taskid, "Copying {0} to /tmp/init.ldif".format(ldiffile),
                 "debug")
-    put(ldiffile, '/tmp/init.ldif')
-    run_command(taskid, 'service solserver stop')
-    run_command(taskid, '/opt/symas/bin/slapadd -b o=gluu -l /tmp/init.ldif')
-    run_command(taskid, 'service solserver start')
-    run_command(taskid, 'rm /tmp/init.ldif')
+    if server.gluu_server:
+        sloc = "gluu-server-"+server.gluu_version
+        put(ldiffile, '/opt/'+sloc+'/tmp/init.ldif')
+        run_command(taskid, chcmd(sloc, 'service solserver stop'))
+        run_command(taskid, chcmd(sloc, '/opt/symas/bin/slapadd -b o=gluu -l /tmp/init.ldif'))
+        run_command(taskid, chcmd(sloc, 'service solserver start'))
+        run_command(taskid, 'rm /opt/'+sloc+'/tmp/init.ldif')
+    else:
+        put(ldiffile, '/tmp/init.ldif')
+        run_command(taskid, 'service solserver stop')
+        run_command(taskid, '/opt/symas/bin/slapadd -b o=gluu -l /tmp/init.ldif')
+        run_command(taskid, 'service solserver start')
+        run_command(taskid, 'rm /tmp/init.ldif')
 
 
 @celery.task(bind=True)
@@ -82,7 +90,8 @@ def initialize_provider(self, server_id, use_ldif):
                                 "{0}_init.ldif".format(server_id))
         with settings(warn_only=True):
             wlogger.log(taskid, "Importing the LDIF file")
-            execute(import_ldif, self.request.id, ldiffile, hosts=[host])
+            execute(import_ldif, self.request.id, ldiffile, s,
+                    hosts=[host])
 
     # Step 1: Add the Replication User DN
     wlogger.log(taskid, 'Connecting to {}'.format(s.hostname))
