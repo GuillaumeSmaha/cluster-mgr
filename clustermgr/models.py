@@ -10,9 +10,10 @@ class LDAPServer(db.Model):
     __tablename__ = "ldap_server"
     id = db.Column(db.Integer, primary_key=True)
     hostname = db.Column(db.String(150), unique=True)
+    ip = db.Column(db.String(45))
     port = db.Column(db.Integer)
     role = db.Column(db.String(10))
-    starttls = db.Column(db.Boolean)
+    protocol = db.Column(db.String(10))
     tls_cacert = db.Column(db.Text)
     tls_servercert = db.Column(db.Text)
     tls_serverkey = db.Column(db.Text)

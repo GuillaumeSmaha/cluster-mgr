@@ -5,7 +5,7 @@ except ImportError:
 from wtforms import StringField, SelectField, BooleanField, IntegerField, \
     PasswordField, RadioField, SubmitField
 from wtforms.validators import DataRequired, Regexp, AnyOf, \
-    ValidationError, URL
+    ValidationError, URL, IPAddress
 from flask_wtf.file import FileField, FileRequired, FileAllowed
 
 
@@ -13,9 +13,13 @@ class NewProviderForm(FlaskForm):
     gluu_server = BooleanField('This is a Gluu Server (OpenLDAP installed inside chroot)', default=False)
     gluu_version = SelectField('Gluu Server Version', choices=[('3.0.1', '3.0.1')])
     hostname = StringField('Hostname *', validators=[DataRequired()])
+    ip = StringField('IP Address *', validators=[DataRequired(), IPAddress()])
     port = IntegerField('Port *', validators=[DataRequired()])
     admin_pw = PasswordField('LDAP Admin Password *', validators=[DataRequired()])
-    starttls = BooleanField('Use StartTLS for communication', default=False)
+    protocol = SelectField(
+        'LDAP Connection Protocol', choices=[
+            ('ldaps', 'ldaps'), ('starttls', 'ldap + StartTLS'),
+            ('ldap', 'ldap')])
     tls_cacert = StringField('TLS CA Certificate')
     tls_servercert = StringField('TLS Server Certificate')
     tls_serverkey = StringField('TLS Server Cert Key')
@@ -26,9 +30,13 @@ class NewConsumerForm(FlaskForm):
     gluu_server = BooleanField('This is a Gluu Server (OpenLDAP installed inside chroot)', default=False)
     gluu_version = SelectField('Gluu Server Version', choices=[('3.0.1', '3.0.1')])
     hostname = StringField('Hostname *', validators=[DataRequired()])
+    ip = StringField('IP Address *', validators=[DataRequired(), IPAddress()])
     port = IntegerField('Port *', validators=[DataRequired()])
     admin_pw = PasswordField('LDAP Admin Password *', validators=[DataRequired()])  # noqa
-    starttls = BooleanField('Use StartTLS for communication', default=False)
+    protocol = SelectField(
+        'LDAP Connection Protocol', choices=[
+            ('ldaps', 'ldaps'), ('starttls', 'ldap + StartTLS'),
+            ('ldap', 'ldap')])
     tls_cacert = StringField('TLS CA Certificate')
     tls_servercert = StringField('TLS Server Certificate')
     tls_serverkey = StringField('TLS Server Cert Key')

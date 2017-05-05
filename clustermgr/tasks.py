@@ -7,7 +7,7 @@ import re
 from datetime import datetime
 
 import requests
-from fabric.api import run, execute, cd, put, env
+from fabric.api import run, execute, cd, put, env, get
 from fabric.context_managers import settings
 from fabric.contrib.files import exists
 from ldap.modlist import modifyModlist
@@ -30,6 +30,10 @@ class FabricException(Exception):
         return repr(self.value)
 
 env.abort_exception = FabricException
+
+
+def starttls(server):
+    return server.protocol == 'starttls'
 
 
 def run_command(taskid, command):
@@ -82,7 +86,8 @@ def initialize_provider(self, server_id, use_ldif):
 
     # Step 1: Add the Replication User DN
     wlogger.log(taskid, 'Connecting to {}'.format(s.hostname))
-    with ldap_conn(s.hostname, s.port, rootuser, s.admin_pw, s.starttls) as con:
+    with ldap_conn(s.hostname, s.port, rootuser, s.admin_pw, starttls(s)) \
+            as con:
         try:
             con.add_s(repdn, replication_user)
             wlogger.log(taskid, 'Replication user added.', 'success')
@@ -96,7 +101,7 @@ def initialize_provider(self, server_id, use_ldif):
     # Step 2: Reconnect as replication user
     try:
         con = ldap.initialize('ldap://{}:{}'.format(s.hostname, s.port))
-        if s.starttls:
+        if s.protocol == 'starttls':
             con.start_tls_s()
         con.bind_s(repdn, appconfig.replication_pw)
         wlogger.log(taskid, "Authenticating as the Replicaiton DN.", "success")
@@ -135,14 +140,15 @@ def replicate(self):
     for provider in providers:
         try:
             with ldap_conn(provider.hostname, provider.port, rootdn,
-                           provider.admin_pw, provider.starttls) as con:
+                           provider.admin_pw, starttls(provider)) as con:
                 con.add_s(dn, replication_user)
             wlogger.log(taskid, "Adding test data to provider {0}".format(
                 provider.hostname), "success")
         except:
             wlogger.log(taskid, "Adding test data to provider {0}".format(
                 provider.hostname), "fail")
-            wlogger.log(taskid, str(sys.exc_info()[0]), "debug")
+            t, v = sys.exc_info()[:2]
+            wlogger.log(taskid, "%s %s" % (t, v), "debug")
 
         consumers = provider.consumers
         wlogger.log(taskid,
@@ -153,7 +159,7 @@ def replicate(self):
                 consumers.index(consumer)+1, len(consumers)))
             try:
                 with ldap_conn(consumer.hostname, consumer.port, rootdn,
-                               consumer.admin_pw, consumer.starttls) as con:
+                               consumer.admin_pw, starttls(provider)) as con:
                     if con.compare_s(dn, 'sn', 'gluu'):
                         wlogger.log(
                             taskid,
@@ -167,7 +173,7 @@ def replicate(self):
         # delete the entry from the provider
         try:
             with ldap_conn(provider.hostname, provider.port, rootdn,
-                           provider.admin_pw, provider.starttls) as con:
+                           provider.admin_pw, starttls(provider)) as con:
                 con.delete_s(dn)
                 if con.compare_s(dn, 'sn', 'gluu'):
                     wlogger.log(taskid, 'Delete operation failed. Data exists',
@@ -176,7 +182,8 @@ def replicate(self):
             wlogger.log(taskid, 'Deleting test data from provider: {}'.format(
                 provider.hostname), 'success')
         except:
-            wlogger.log(taskid, sys.exc_info()[0], 'debug')
+            t, v = sys.exc_info()[:2]
+            wlogger.log(taskid, "%s %s" % (t, v), "debug")
 
         # verify the data is removed from the consumers
         for consumer in consumers:
@@ -186,7 +193,7 @@ def replicate(self):
                     consumers.index(consumer)+1, len(consumers)))
             try:
                 with ldap_conn(consumer.hostname, consumer.port, rootdn,
-                               consumer.admin_pw, consumer.starttls) as con:
+                               consumer.admin_pw, starttls(consumer)) as con:
                     if con.compare_s(dn, 'sn', 'gluu'):
                         wlogger.log(
                             taskid,
@@ -323,11 +330,17 @@ def gen_slapd_gluu(taskid, conffile, version):
             out = put(os.path.join(app.config['SCHEMA_DIR'], schema),
                       "/opt/"+sloc+"/opt/gluu/schema/openldap/"+schema)
             wlogger.log(taskid, out, "debug")
-
+    # 7. Copy the sladp.conf
     wlogger.log(taskid, "Copying slapd.conf file to remote server")
     out = put(conffile, '/opt/'+sloc+'/opt/symas/etc/openldap/slapd.conf')
     if out.failed:
         wlogger.log(taskid, "Failed to copy the slapd.conf file", "error")
+    # 8. Backup openldap.crt to be used in consumers
+    wlogger.log(taskid, "Creating backup of openldap.crt")
+    out = get("/opt/"+sloc+"/etc/certs/openldap.crt", os.path.join(
+        app.config["CERTS_DIR"], "{0}.crt".format(env.host)))
+    if out.failed:
+        wlogger.log(taskid, "Failed to copy the openldap.crt file", "error")
 
     wlogger.log(taskid, "Checking status of LDAP server")
     status = run_command(taskid, chcmd(sloc, 'service solserver status'))
@@ -358,7 +371,11 @@ def gen_slapd_gluu(taskid, conffile, version):
     if 'failed' in log:
         wlogger.log(taskid, "Debugging slapd...", "fail")
         run_command(taskid, chcmd(sloc, "service solserver start -d 1"))
-    return
+        return
+    # Restart gluu-server
+    wlogger.log(taskid, "Restarting Gluu Server")
+    run_command(taskid, 'service '+sloc+' stop')
+    run_command(taskid, 'service '+sloc+' start')
 
 
 def get_olcdb_entry(result):
@@ -369,18 +386,34 @@ def get_olcdb_entry(result):
     return ('', '')
 
 
+def copy_certificate(server, certname):
+    certfile = os.path.join(app.config["CERTS_DIR"], certname+".crt")
+    if server.gluu_server:
+        sloc = 'gluu-server-' + server.gluu_version
+        put(certfile, "/opt/"+sloc+"/opt/symas/ssl/"+certname+".crt")
+    else:
+        put(certfile, "/opt/symas/ssl/"+certname+".crt")
+
+
 def mirror(taskid, s1, s2):
+    with settings(warn_only=True):
+        execute(copy_certificate, s1, s2.hostname,
+                hosts=["root@{}".format(s1.hostname)])
+
     appconf = AppConfiguration.query.first()
     cnuser = 'cn=admin,cn=config'
     # Prepare the conf for server1
     vals = {'r_id': s2.id, 'phost': s2.hostname, 'pport': s2.port,
             'replication_dn': appconf.replication_dn,
-            'replication_pw': appconf.replication_pw}
+            'replication_pw': appconf.replication_pw,
+            'pcert': 'tls_cacert="/opt/symas/ssl/{0}.crt"'.format(s2.hostname),
+            'pprotocol': s2.protocol,
+            }
     f = open(os.path.join(app.root_path, 'templates', 'slapd', 'mirror.conf'))
     olcSyncrepl = f.read().format(**vals)
     f.close()
     # Find the dn of the o=gluu database in cn=config
-    with ldap_conn(s1.hostname, s1.port, cnuser, s1.admin_pw, s1.starttls) \
+    with ldap_conn(s1.hostname, s1.port, cnuser, s1.admin_pw, starttls(s1)) \
             as con:
         result = con.search_s("cn=config", ldap.SCOPE_SUBTREE,
                               "(objectclass=olcMdbConfig)", [])
@@ -415,6 +448,7 @@ def mirror(taskid, s1, s2):
 def setup_server(self, server_id, conffile):
     server = LDAPServer.query.get(server_id)
     host = "root@{}".format(server.hostname)
+    tid = self.request.id
     try:
         with settings(warn_only=True):
             if server.gluu_server:
@@ -423,56 +457,45 @@ def setup_server(self, server_id, conffile):
             else:
                 execute(generate_slapd, self.request.id, server,
                         conffile, hosts=[host])
-    except FabricException as e:
-        wlogger.log(self.request.id, "Failed setting up server. %s" % e,
-                    "error")
-        return
     except:
-        wlogger.log(self.request.id,
-                    "Failed setting up server. %s" % sys.exc_info()[1],
-                    "error")
+        wlogger.log(tid, "Failed setting up server.", "error")
+        t, v = sys.exc_info()[:2]
+        wlogger.log(tid, "%s %s" % (t, v), "debug")
         return
 
-    # check for mirrormode and setup mirroring
+    # MirrorMode
     appconf = AppConfiguration.query.first()
-    if appconf.topology == 'mirrormode':
-        providers = LDAPServer.query.all()
-        if len(providers) < 2:
-            wlogger.log(
-                self.request.id, "The cluster is configured to work in"
-                " Mirror Mode. Add another provider to setup Mirror Mode.")
-        if len(providers) == 2:
-            wlogger.log(
-                    self.request.id,
-                    "Setting up MirrorMode between the two providers.")
-            s1, s2 = providers
-            s1.provider_id = s2.id
-            s2.provider_id = s1.id
-            db.session.add(s1)
-            db.session.add(s2)
-            db.session.commit()
-            try:
-                mirror(self.request.id, s1, s2)
-                wlogger.log(
-                    self.request.id,
-                    "Mirroring {0} to {1}".format(s1.hostname, s2.hostname),
-                    "success")
-                mirror(self.request.id, s2, s1)
-                wlogger.log(
-                    self.request.id,
-                    "Mirroring {0} to {1}".format(s2.hostname, s1.hostname),
-                    "success")
-            except:
-                wlogger.log(
-                    self.request.id, "Mirroring encountered an exception",
-                    "fail")
-                wlogger.log(
-                    self.request.id, "%s" % sys.exc_info(), "debug")
-        elif len(providers) > 2:
-            wlogger.log(
-                self.request.id, "The cluster has more than 2 Providers."
-                "It should already be working in Mirror Mode. Check Dashboard."
-            )
+    if appconf.topology != 'mirrormode':
+        return
+
+    providers = LDAPServer.query.all()
+    if len(providers) < 2:
+        wlogger.log(tid, "The cluster is configured to work in Mirror Mode. "
+                    "Add another provider to setup Mirror Mode.")
+        return
+    elif len(providers) > 2:
+        wlogger.log(tid, "The cluster has more than 2 Providers. It should "
+                    "already be working in Mirror Mode. Check Dashboard.")
+        return
+
+    wlogger.log(tid, "Setting up MirrorMode between the two providers.")
+    s1, s2 = providers
+    s1.provider_id = s2.id
+    s2.provider_id = s1.id
+    db.session.add(s1)
+    db.session.add(s2)
+    db.session.commit()
+    try:
+        mirror(self.request.id, s1, s2)
+        wlogger.log(tid, "Mirroring {0} to {1}".format(s1.hostname,
+                    s2.hostname), "success")
+        mirror(self.request.id, s2, s1)
+        wlogger.log(tid, "Mirroring {0} to {1}".format(s2.hostname,
+                    s1.hostname), "success")
+    except:
+        wlogger.log(tid, "Mirroring encountered an exception", "fail")
+        t, v = sys.exc_info()[:2]
+        wlogger.log(tid, "%s %s" % (t, v), "debug")
 
 
 def modify_oxauth_config(kr, pub_keys=None, openid_jks_pass=""):
@@ -483,7 +506,7 @@ def modify_oxauth_config(kr, pub_keys=None, openid_jks_pass=""):
         return
 
     with ldap_conn(server.hostname, server.port, "cn=directory manager,o=gluu",
-                   server.admin_pw, server.starttls) as conn:
+                   server.admin_pw, starttls(server)) as conn:
         # base DN for oxAuth config
         oxauth_base = ",".join([
             "ou=oxauth",

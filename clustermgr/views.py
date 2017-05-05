@@ -113,7 +113,7 @@ def new_server(stype):
         s.hostname = form.hostname.data
         s.port = form.port.data
         s.role = stype
-        s.starttls = form.starttls.data
+        s.protocol = form.protocol.data
         s.tls_cacert = form.tls_cacert.data
         s.tls_servercert = form.tls_servercert.data
         s.tls_serverkey = form.tls_serverkey.data
@@ -125,7 +125,7 @@ def new_server(stype):
         db.session.add(s)
         try:
             db.session.commit()
-        except Exception as e:
+        except:
             flash("Failed to add new server {0}. Probably it is a duplicate."
                   "".format(form.hostname.data), "danger")
             return redirect(url_for('home'))
@@ -165,7 +165,12 @@ def generate_conf(server):
         vals["phost"] = s.provider.hostname
         vals["pport"] = s.provider.port
         vals["r_pw"] = appconfig.replication_pw
-        vals["protocol"] = "ldap" if s.provider.starttls else "ldaps"
+        vals["pprotocol"] = "ldap"
+        vals["provider_cert"] = ""
+        if s.provider.protocol == "ldaps":
+            vals["pprotocol"] = "ldaps"
+            vals["provider_cert"] = "tls_cacert=\"/etc/certs/{0}.crt\"".format(
+                    s.provider.hostname)
 
     conf = conf.format(**vals)
     return conf
