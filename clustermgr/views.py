@@ -169,7 +169,8 @@ def generate_conf(server):
         vals["provider_cert"] = ""
         if s.provider.protocol == "ldaps":
             vals["pprotocol"] = "ldaps"
-            vals["provider_cert"] = "tls_cacert=\"/etc/certs/{0}.crt\"".format(
+        if s.provider.protocol != "ldap":
+            vals["provider_cert"] = "tls_cacert=\"/opt/symas/ssl/{0}.crt\"".format(
                     s.provider.hostname)
 
     conf = conf.format(**vals)

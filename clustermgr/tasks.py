@@ -313,8 +313,8 @@ def chcmd(chdir, command):
     return 'chroot /opt/{0} /bin/bash -c "{1}"'.format(chdir, command)
 
 
-def gen_slapd_gluu(taskid, conffile, version):
-    sloc = 'gluu-server-'+version
+def gen_slapd_gluu(taskid, server, conffile):
+    sloc = 'gluu-server-'+server.gluu_version
     # 1. OpenLDAP is installed inside the container
     # 2. symas-openldap.conf file is present inside CE
     # 3. Certificates are generate by setup.py and present
@@ -461,16 +461,20 @@ def setup_server(self, server_id, conffile):
     try:
         with settings(warn_only=True):
             if server.gluu_server:
-                execute(gen_slapd_gluu, self.request.id, conffile,
-                        server.gluu_version, hosts=[host])
+                execute(gen_slapd_gluu, tid, server, conffile, hosts=[host])
             else:
-                execute(generate_slapd, self.request.id, server,
-                        conffile, hosts=[host])
+                execute(generate_slapd, tid, server, conffile, hosts=[host])
     except:
         wlogger.log(tid, "Failed setting up server.", "error")
         t, v = sys.exc_info()[:2]
         wlogger.log(tid, "%s %s" % (t, v), "debug")
         return
+
+    # For consumers with providers using SSL copy their certificates
+    if server.role == 'consumer' and server.provider.protocol != 'ldap':
+        with settings(warn_only=True):
+            execute(copy_certificate, server, server.provider.hostname,
+                    hosts=[host])
 
     # MirrorMode
     appconf = AppConfiguration.query.first()
