@@ -106,6 +106,7 @@ def initialize_provider(self, server_id, use_ldif):
             wlogger.log(taskid, 'Replication user added.', 'success')
         except ldap.LDAPError as e:
             wlogger.log(taskid, "Failed to add Replication user", "fail")
+            print "Failed to add replication user", sys.exc_info()[2]
             return
     # Step 2: Reconnect as replication user
     try:
@@ -158,6 +159,7 @@ def replicate(self):
                 provider.hostname), "fail")
             t, v = sys.exc_info()[:2]
             wlogger.log(taskid, "%s %s" % (t, v), "debug")
+            print "Adding test data failed", sys.exc_info()[2]
 
         consumers = provider.consumers
         wlogger.log(taskid,
@@ -193,6 +195,7 @@ def replicate(self):
         except:
             t, v = sys.exc_info()[:2]
             wlogger.log(taskid, "%s %s" % (t, v), "debug")
+            print sys.exc_info()[2]
 
         # verify the data is removed from the consumers
         for consumer in consumers:
@@ -468,6 +471,7 @@ def setup_server(self, server_id, conffile):
         wlogger.log(tid, "Failed setting up server.", "error")
         t, v = sys.exc_info()[:2]
         wlogger.log(tid, "%s %s" % (t, v), "debug")
+        print sys.exc_info()[2]
         return
 
     # For consumers with providers using SSL copy their certificates
@@ -509,6 +513,7 @@ def setup_server(self, server_id, conffile):
         wlogger.log(tid, "Mirroring encountered an exception", "fail")
         t, v = sys.exc_info()[:2]
         wlogger.log(tid, "%s %s" % (t, v), "debug")
+        print sys.exc_info()[2]
 
 
 def modify_oxauth_config(kr, pub_keys=None, openid_jks_pass=""):
