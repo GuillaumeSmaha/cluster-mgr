@@ -114,12 +114,12 @@ def initialize_provider(self, server_id, use_ldif):
         if s.protocol == 'starttls':
             con.start_tls_s()
         con.bind_s(repdn, appconfig.replication_pw)
-        wlogger.log(taskid, "Authenticating as the Replicaiton DN.", "success")
+        wlogger.log(taskid, "Authenticating as the Replication DN.", "success")
         initialized = True
     except ldap.SERVER_DOWN:
         con = ldap.initialize('ldaps://{}:{}'.format(s.hostname, s.port))
         con.bind_s(repdn, appconfig.replication_pw)
-        wlogger.log(taskid, "Authenticating as the Replicaiton DN.", "success")
+        wlogger.log(taskid, "Authenticating as the Replication DN.", "success")
         initialized = True
     except ldap.LDAPError as e:
         wlogger.log(taskid, "%s" % e, 'error')
