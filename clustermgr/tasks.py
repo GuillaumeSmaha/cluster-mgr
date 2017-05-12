@@ -164,7 +164,7 @@ def replicate(self):
         consumers = provider.consumers
         wlogger.log(taskid,
                     'Listing consumers of provider %s' % provider.hostname)
-        # Check the consumers 
+        # Check the consumers
         for consumer in consumers:
             wlogger.log(taskid, 'Verifying data in consumers: {} of {}'.format(
                 consumers.index(consumer)+1, len(consumers)))
@@ -370,7 +370,7 @@ def gen_slapd_gluu(taskid, server, conffile):
         sloc, '/opt/symas/bin/slaptest -f /opt/symas/etc/openldap/slapd.conf '
         ' -F /opt/symas/etc/openldap/slapd.d'))
 
-    wlogger.log(taskid, "Setting ownership of sladp files")
+    wlogger.log(taskid, "Setting ownership of slapd files")
     run_command(taskid, chcmd(sloc, "chown -R ldap:ldap /opt/gluu/data"))
     run_command(taskid,
                 chcmd(sloc, "chown -R ldap:ldap /opt/gluu/schema/openldap"))
