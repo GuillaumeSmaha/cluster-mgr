@@ -170,7 +170,7 @@ def replicate(self):
                 consumers.index(consumer)+1, len(consumers)))
             try:
                 with ldap_conn(consumer.hostname, consumer.port, rootdn,
-                               consumer.admin_pw, starttls(provider)) as con:
+                               consumer.admin_pw, starttls(consumer)) as con:
                     if con.compare_s(dn, 'sn', 'gluu'):
                         wlogger.log(
                             taskid,
