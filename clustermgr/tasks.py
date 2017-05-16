@@ -461,6 +461,13 @@ def setup_server(self, server_id, conffile):
     server = LDAPServer.query.get(server_id)
     host = "root@{}".format(server.hostname)
     tid = self.request.id
+
+    # For consumers with providers using SSL copy their certificates
+    if server.role == 'consumer' and server.provider.protocol != 'ldap':
+        with settings(warn_only=True):
+            execute(copy_certificate, server, server.provider.hostname,
+                    hosts=[host])
+
     try:
         with settings(warn_only=True):
             if server.gluu_server:
@@ -473,12 +480,6 @@ def setup_server(self, server_id, conffile):
         wlogger.log(tid, "%s %s" % (t, v), "debug")
         print sys.exc_info()[2]
         return
-
-    # For consumers with providers using SSL copy their certificates
-    if server.role == 'consumer' and server.provider.protocol != 'ldap':
-        with settings(warn_only=True):
-            execute(copy_certificate, server, server.provider.hostname,
-                    hosts=[host])
 
     # MirrorMode
     appconf = AppConfiguration.query.first()
