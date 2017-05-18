@@ -11,7 +11,7 @@
         <th>Hostname</th>
         <th>Port</th>
         <th>Role</th>
-        <th>StartTLS</th>
+        <th>Protocol</th>
         <th>Replication ID</th>
         <th>Actions</th>
       </tr>
@@ -23,7 +23,7 @@
         <td>{{ server.hostname }}</td>
         <td>{{ server.port }}</td>
         <td>{{ server.role }}</td>
-        <td>{% if server.starttls %}<i class="glyphicon glyphicon-ok text-success"></i>{% else %}<i class="glyphicon glyphicon-remove text-danger"></i>{% endif %}</td>
+        <td>{{ server.protocol }}</td>
         <td>{% if server.provider_id %}{{ server.provider_id }}{% else %} NA {% endif%}</td>
         <td>
             {% if server.role == "provider" and not server.initialized %}

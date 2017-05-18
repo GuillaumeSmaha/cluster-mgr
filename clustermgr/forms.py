@@ -18,7 +18,8 @@ class NewProviderForm(FlaskForm):
     admin_pw = PasswordField('LDAP Admin Password *', validators=[DataRequired()])
     protocol = SelectField(
         'LDAP Connection Protocol', choices=[
-            ('ldaps', 'ldaps'), ('starttls', 'ldap + StartTLS'),
+            ('ldaps', 'ldaps'),
+            # ('starttls', 'ldap + StartTLS'),
             ('ldap', 'ldap')])
     tls_cacert = StringField('TLS CA Certificate')
     tls_servercert = StringField('TLS Server Certificate')
@@ -35,7 +36,8 @@ class NewConsumerForm(FlaskForm):
     admin_pw = PasswordField('LDAP Admin Password *', validators=[DataRequired()])  # noqa
     protocol = SelectField(
         'LDAP Connection Protocol', choices=[
-            ('ldaps', 'ldaps'), ('starttls', 'ldap + StartTLS'),
+            ('ldaps', 'ldaps'),
+            # ('starttls', 'ldap + StartTLS'),
             ('ldap', 'ldap')])
     tls_cacert = StringField('TLS CA Certificate')
     tls_servercert = StringField('TLS Server Certificate')
