@@ -97,6 +97,12 @@ class OxauthServer(db.Model):
 
     # hostname for SSH access
     hostname = db.Column(db.String(255))
+    gluu_server = db.Column(db.Boolean(), default=True)
+    gluu_version = db.Column(db.String(10), default="3.0.1")
+
+    @property
+    def jks_path(self):
+        return "/opt/gluu-server-{}/etc/certs/oxauth-keys.jks".format(self.gluu_version)
 
 
 class LoggingServer(db.Model):

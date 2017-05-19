@@ -647,8 +647,8 @@ def _rotate_keys(kr, javalibs_dir, jks_path):
         db.session.commit()
 
         if kr.type == "jks":
-            def _copy_jks(path, hostname):
-                out = put(path, kr.jks_remote_path)
+            def _copy_jks(path, hostname, dest_path):
+                out = put(path, dest_path)
                 if out.failed:
                     print "unable to copy JKS file to " \
                         "oxAuth server {}".format(hostname)
@@ -659,7 +659,8 @@ def _rotate_keys(kr, javalibs_dir, jks_path):
             for server in OxauthServer.query:
                 host = "root@{}".format(server.hostname)
                 with settings(warn_only=True):
-                    execute(_copy_jks, jks_path, server.hostname, hosts=[host])
+                    execute(_copy_jks, jks_path, server.hostname,
+                            server.jks_path, hosts=[host])
 
 
 @celery.task
