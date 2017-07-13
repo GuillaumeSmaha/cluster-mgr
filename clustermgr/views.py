@@ -183,7 +183,7 @@ def setup_ldap_server(server_id, step):
     if step == 1:
         return redirect(url_for('home'))
     if s is None:
-        flash('Cannot find the server with ID: %s' % s.id, 'warning')
+        flash('Cannot find the server with ID: %s' % server_id, 'warning')
         return redirect(url_for('home'))
     if step == 2:
         if request.method == 'POST':
