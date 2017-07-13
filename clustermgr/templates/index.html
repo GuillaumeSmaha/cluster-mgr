@@ -26,7 +26,9 @@
         <td>{{ server.protocol }}</td>
         <td>{% if server.provider_id %}{{ server.provider_id }}{% else %} NA {% endif%}</td>
         <td>
-            {% if server.role == "provider" and not server.initialized %}
+            {% if not server.setup %}
+                <a class="btn btn-primary btn-xs" href="{{ url_for('setup_ldap_server', server_id=server.id, step=3) }}">Retry Setup</a>
+            {% elif server.role == "provider" and server.setup and not server.initialized %}
                 <div class="btn-group">
                     <button type="button" class="btn btn-xs btn-success dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                       Initialize <span class="caret"></span>

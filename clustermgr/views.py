@@ -118,6 +118,7 @@ def new_server(stype):
         s.tls_servercert = form.tls_servercert.data
         s.tls_serverkey = form.tls_serverkey.data
         s.initialized = False
+        s.setup = False
         s.admin_pw = form.admin_pw.data
         s.provider_id = None if stype == 'provider' else form.provider.data
         s.gluu_server = form.gluu_server.data

@@ -27,7 +27,7 @@ class FabricException(Exception):
         self.value = value
 
     def __str__(self):
-        return repr(self.value)
+        return self.value
 
 env.abort_exception = FabricException
 
@@ -476,10 +476,20 @@ def setup_server(self, server_id, conffile):
                 execute(generate_slapd, tid, server, conffile, hosts=[host])
     except:
         wlogger.log(tid, "Failed setting up server.", "error")
-        t, v = sys.exc_info()[:2]
-        wlogger.log(tid, "%s %s" % (t, v), "debug")
-        print sys.exc_info()[2]
+        server.setup = False
+        db.session.commit()
+        v = sys.exc_info()[1]
+        wlogger.log(tid, str(v), "debug")
         return
+
+    # Everything is done. Set the flag to based on the messages
+    msgs = wlogger.get_messages(tid)
+    setup_success = True
+    for msg in msgs:
+        msg = json.loads(msg)
+        setup_success = setup_success and msg.level != 'error'
+    server.setup = setup_success
+    db.session.commit()
 
     # MirrorMode
     appconf = AppConfiguration.query.first()

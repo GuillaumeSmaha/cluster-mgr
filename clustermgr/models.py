@@ -18,6 +18,7 @@ class LDAPServer(db.Model):
     tls_servercert = db.Column(db.Text)
     tls_serverkey = db.Column(db.Text)
     initialized = db.Column(db.Boolean)
+    setup = db.Column(db.Boolean)
     admin_pw = db.Column(db.String(150))
     provider_id = db.Column(db.Integer, db.ForeignKey('ldap_server.id'))
     consumers = relationship("LDAPServer", backref=backref(
