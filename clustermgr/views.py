@@ -25,7 +25,10 @@ from .utils import generate_random_iv
 def home():
     servers = LDAPServer.query.all()
     config = AppConfiguration.query.first()
-    return render_template('index.html', servers=servers, config=config)
+    if len(servers) == 0:
+        return render_template('intro.html')
+
+    return render_template('dashboard.html', servers=servers, config=config)
 
 
 @app.route('/error/<error>/')

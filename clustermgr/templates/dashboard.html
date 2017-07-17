@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block content %}
+
+  <h2 class="page-header">Dashboard</h2>
+  <div class="row">
+      <!-- topology info box -->
+      <div class="col-xs-12 col-sm-6 col-md-3">
+          <div class="panel panel-default">
+              <div class="panel-heading">
+                  <div class="row">
+                      <div class="col-xs-3">
+                          <h1><i class="glyphicon glyphicon-globe"></i></h1>
+                      </div>
+                      <div class="col-xs-9 text-right">
+                          <h3>Topology <small>delta-syncrepl</small></h3>
+                      </div>
+                  </div>
+              </div>
+              <a href="{{ url_for('setup_cluster', topology='delta') }}" class="text-muted">
+                  <div class="panel-body">
+                      <span class="pull-left">Change</span>
+                      <span class="pull-right"><i class="glyphicon glyphicon-circle-arrow-right"></i></span>
+                      <div class="clearfix"></div>
+                  </div>
+              </a>
+          </div>
+      </div>
+      <!-- provider info box -->
+      <div class="col-xs-12 col-sm-6 col-md-3">
+          <div class="panel panel-info">
+              <div class="panel-heading">
+                  <div class="row">
+                      <div class="col-xs-3">
+                          <h1><i class="glyphicon glyphicon-hdd"></i></h1>
+                      </div>
+                      <div class="col-xs-9 text-right">
+                          <h3>1 <br> <small>Provider</small></h3>
+                      </div>
+                  </div>
+              </div>
+              <a href="{{ url_for('setup_cluster', topology='delta') }}" class="text-info">
+                  <div class="panel-body">
+                      <span class="pull-left">Setup Cluster</span>
+                      <span class="pull-right"><i class="glyphicon glyphicon-circle-arrow-right"></i></span>
+                      <div class="clearfix"></div>
+                  </div>
+              </a>
+          </div>
+      </div>
+      <!-- consumer info box -->
+      <div class="col-xs-12 col-sm-6 col-md-3">
+          <div class="panel panel-warning">
+              <div class="panel-heading">
+                  <div class="row">
+                      <div class="col-xs-3">
+                          <h1><i class="glyphicon glyphicon-import"></i></h1>
+                      </div>
+                      <div class="col-xs-9 text-right">
+                          <h3>2 <br> <small>Consumer</small></h3>
+                      </div>
+                  </div>
+              </div>
+              <a href="{{ url_for('setup_cluster', topology='delta') }}" class="text-warning">
+                  <div class="panel-body">
+                      <span class="pull-left">Add Consumer</span>
+                      <span class="pull-right"><i class="glyphicon glyphicon-circle-arrow-right"></i></span>
+                      <div class="clearfix"></div>
+                  </div>
+              </a>
+          </div>
+      </div>
+      <!-- Replication test info box -->
+      <div class="col-xs-12 col-sm-6 col-md-3">
+          <div class="panel panel-success">
+              <div class="panel-heading">
+                  <div class="row">
+                      <div class="col-xs-3">
+                          <h1><i class="glyphicon glyphicon-ok"></i></h1>
+                      </div>
+                      <div class="col-xs-9 text-right">
+                          <h3>Replication <small>Working</small></h3>
+                      </div>
+                  </div>
+              </div>
+              <a href="{{ url_for('test_replication') }}" class="text-success">
+                  <div class="panel-body">
+                      <span class="pull-left">Run Test</span>
+                      <span class="pull-right"><i class="glyphicon glyphicon-circle-arrow-right"></i></span>
+                      <div class="clearfix"></div>
+                  </div>
+              </a>
+          </div>
+      </div>
+
+  </div>
+
+  <table id="servers" class="table table-bordered">
+    <thead>
+      <tr>
+        <th>Server ID</th>
+        <th>Hostname</th>
+        <th>Port</th>
+        <th>Role</th>
+        <th>Protocol</th>
+        <th>Replication ID</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for server in servers %}
+      <tr>
+        <td>{{ server.id }}</td>
+        <td>{{ server.hostname }}</td>
+        <td>{{ server.port }}</td>
+        <td>{{ server.role }}</td>
+        <td>{{ server.protocol }}</td>
+        <td>{% if server.provider_id %}{{ server.provider_id }}{% else %} NA {% endif%}</td>
+        <td>
+            {% if not server.setup %}
+                <a class="btn btn-primary btn-xs" href="{{ url_for('setup_ldap_server', server_id=server.id, step=3) }}">Retry Setup</a>
+            {% elif server.role == "provider" and server.setup and not server.initialized %}
+                <div class="btn-group">
+                    <button type="button" class="btn btn-xs btn-success dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                      Initialize <span class="caret"></span>
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><a href="{{ url_for('initialize', server_id=server.id)}}">Using Existing Data</a></li>
+                        <li><a href="{{ url_for('ldif_upload', server_id=server.id)}}">Using Exported LDIF</a></li>
+                    </ul>
+                </div>
+            {% elif server.role == "provider" and server.initialized %}
+                <a class="btn btn-success btn-xs" href="{{ url_for('initialize', server_id=server.id) }}">Reinitialize</a>
+                <a class="btn btn-primary btn-xs" href="{{ url_for('new_server', stype='consumer') }}">Add Consumer</a>
+            {% endif %}
+            <a class="btn btn-danger btn-xs" href="{{ url_for('remove_server', server_id=server.id) }}">Remove</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+{% endblock %}
+{% block js %}
+{% endblock %}
