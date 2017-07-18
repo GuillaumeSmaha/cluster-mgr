@@ -109,8 +109,21 @@ def setup_cluster(topology):
 
 @app.route('/server/new/<stype>/', methods=['GET', 'POST'])
 def new_server(stype):
+    servers = LDAPServer.query.all()
+    config = AppConfiguration.query.first()
     if stype == 'provider':
         form = NewProviderForm()
+        if len(servers) == 1 and config.topology == 'delta':
+            flash("Only 1 provider can be configured in the \"delta-syncrepl\""
+                  " topology. Kindly change the topology and try again!",
+                  "danger")
+            return redirect(url_for('home'))
+        elif len(servers) == 2 and config.topology == 'mirror':
+            flash("Only 1 provider can be configured in the \"mirror mode\""
+                  " topology. Kindly change the topology and try again!",
+                  "danger")
+            return redirect(url_for('home'))
+
     elif stype == 'consumer':
         form = NewConsumerForm()
         form.provider.choices = [
