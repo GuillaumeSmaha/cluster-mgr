@@ -12,7 +12,7 @@
                           <h1><i class="glyphicon glyphicon-globe"></i></h1>
                       </div>
                       <div class="col-xs-9 text-right">
-                          <h3>Topology <small>delta-syncrepl</small></h3>
+                          <h3>Topology <br> <small>{{ data.topology }}</small></h3>
                       </div>
                   </div>
               </div>
@@ -34,7 +34,7 @@
                           <h1><i class="glyphicon glyphicon-hdd"></i></h1>
                       </div>
                       <div class="col-xs-9 text-right">
-                          <h3>1 <br> <small>Provider</small></h3>
+                          <h3>{{ data.provider }} <br> <small>Provider</small></h3>
                       </div>
                   </div>
               </div>
@@ -56,7 +56,7 @@
                           <h1><i class="glyphicon glyphicon-import"></i></h1>
                       </div>
                       <div class="col-xs-9 text-right">
-                          <h3>2 <br> <small>Consumer</small></h3>
+                          <h3>{{ data.consumer }} <br> <small>Consumer</small></h3>
                       </div>
                   </div>
               </div>
@@ -71,18 +71,22 @@
       </div>
       <!-- Replication test info box -->
       <div class="col-xs-12 col-sm-6 col-md-3">
-          <div class="panel panel-success">
+          <div class="panel {% if data.last_test %}panel-success{% else %}panel-danger{% endif %}">
               <div class="panel-heading">
                   <div class="row">
                       <div class="col-xs-3">
+                          {% if data.last_test %}
                           <h1><i class="glyphicon glyphicon-ok"></i></h1>
+                          {% else %}
+                          <h1><i class="glyphicon glyphicon-remove"></i></h1>
+                          {% endif %}
                       </div>
                       <div class="col-xs-9 text-right">
-                          <h3>Replication <small>Working</small></h3>
+                          <h3>Replication <small>{% if data.last_test %} Working {% elif data.last_test == false %} Failed {% else %} Untested {% endif %}</small></h3>
                       </div>
                   </div>
               </div>
-              <a href="{{ url_for('test_replication') }}" class="text-success">
+              <a href="{{ url_for('test_replication') }}" class="{% if data.last_test %}text-success{% else %}text-danger{% endif %}">
                   <div class="panel-body">
                       <span class="pull-left">Run Test</span>
                       <span class="pull-right"><i class="glyphicon glyphicon-circle-arrow-right"></i></span>

@@ -28,7 +28,15 @@ def home():
     if len(servers) == 0:
         return render_template('intro.html')
 
-    return render_template('dashboard.html', servers=servers, config=config)
+    data = {"provider": 0, "consumer": 0, "topology": config.topology,
+            "last_test": config.last_test}
+    for server in servers:
+        if server.role == 'provider':
+            data["provider"] += 1
+        elif server.role == 'consumer':
+            data["consumer"] += 1
+
+    return render_template('dashboard.html', data=data, servers=servers)
 
 
 @app.route('/error/<error>/')

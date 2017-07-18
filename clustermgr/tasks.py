@@ -144,6 +144,7 @@ def replicate(self):
         ('cn', ['testentry']),
         ('sn', ['gluu']),
         ]
+    test_result = True
 
     wlogger.log(taskid, 'Available providers: {}'.format(len(providers)),
                 "debug")
@@ -157,9 +158,9 @@ def replicate(self):
         except:
             wlogger.log(taskid, "Adding test data to provider {0}".format(
                 provider.hostname), "fail")
-            t, v = sys.exc_info()[:2]
-            wlogger.log(taskid, "%s %s" % (t, v), "debug")
-            print "Adding test data failed", sys.exc_info()[2]
+            v = sys.exc_info()[1]
+            wlogger.log(taskid, str(v), "debug")
+            test_result = test_result and False
 
         consumers = provider.consumers
         wlogger.log(taskid,
@@ -176,10 +177,12 @@ def replicate(self):
                             taskid,
                             'Test data is replicated and available', 'success')
             except ldap.NO_SUCH_OBJECT:
-                wlogger.log(taskid, 'Test data is NOT replicated.', 'fail')
+                wlogger.log(taskid, 'Test data is NOT replicated.', 'error')
+                test_result = test_result and False
             except ldap.LDAPError as e:
                 wlogger.log(taskid, 'Failed to connect to {0}. {1}'.format(
                                     consumer.hostname, e), 'error')
+                test_result = test_result and False
 
         # delete the entry from the provider
         try:
@@ -189,13 +192,14 @@ def replicate(self):
                 if con.compare_s(dn, 'sn', 'gluu'):
                     wlogger.log(taskid, 'Delete operation failed. Data exists',
                                 'error')
+                    test_result = test_result and False
         except ldap.NO_SUCH_OBJECT:
             wlogger.log(taskid, 'Deleting test data from provider: {}'.format(
                 provider.hostname), 'success')
         except:
-            t, v = sys.exc_info()[:2]
-            wlogger.log(taskid, "%s %s" % (t, v), "debug")
-            print sys.exc_info()[2]
+            v = sys.exc_info()[1]
+            wlogger.log(taskid, str(v), "debug")
+            test_result = test_result and False
 
         # verify the data is removed from the consumers
         for consumer in consumers:
@@ -211,6 +215,7 @@ def replicate(self):
                             taskid,
                             'Failed to remove test data in consumer {}'.format(
                                 consumer.hostname), 'error')
+                        test_result = test_result and False
             except ldap.NO_SUCH_OBJECT:
                     wlogger.log(
                         taskid,
@@ -220,8 +225,14 @@ def replicate(self):
                 wlogger.log(
                     taskid, 'Failed to test consumer: {0}. Error: {1}'.format(
                         consumer.hostname, e), 'error')
+                test_result = test_result and False
 
     wlogger.log(taskid, 'Replication test Complete.')
+    appconf = AppConfiguration.query.first()
+    appconf.last_test = test_result
+    db.session.commit()
+
+    return test_result
 
 
 def generate_slapd(taskid, server, conffile):
