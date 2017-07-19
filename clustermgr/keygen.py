@@ -14,7 +14,8 @@ def exec_cmd(cmd):
     return stdout, stderr, retcode
 
 
-def generate_jks(passwd, javalibs_dir, jks_path, exp=365, alg="RS512"):
+def generate_jks(passwd, javalibs_dir, jks_path, exp=365,
+                 alg="RS256 RS384 RS512 ES256 ES384 ES512"):
     if os.path.exists(jks_path):
         os.unlink(jks_path)
 
