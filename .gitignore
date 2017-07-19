@@ -98,3 +98,4 @@ celerybeat-schedule.*
 celerybeat.pid
 *.db
 celeryd.*
+tmp
