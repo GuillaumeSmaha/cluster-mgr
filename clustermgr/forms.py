@@ -11,7 +11,7 @@ from flask_wtf.file import FileField, FileRequired, FileAllowed
 
 class NewProviderForm(FlaskForm):
     gluu_server = BooleanField('This is a Gluu Server (OpenLDAP installed inside chroot)', default=False)
-    gluu_version = SelectField('Gluu Server Version', choices=[('3.0.1', '3.0.1')])
+    gluu_version = SelectField('Gluu Server Version', choices=[('3.0.1', '3.0.1'), ('3.0.2', '3.0.2')])
     hostname = StringField('Hostname *', validators=[DataRequired()])
     ip = StringField('IP Address *', validators=[DataRequired(), IPAddress()])
     port = IntegerField('Port *', validators=[DataRequired()])
@@ -29,7 +29,7 @@ class NewProviderForm(FlaskForm):
 class NewConsumerForm(FlaskForm):
     provider = SelectField('Provider *', coerce=int)
     gluu_server = BooleanField('This is a Gluu Server (OpenLDAP installed inside chroot)', default=False)
-    gluu_version = SelectField('Gluu Server Version', choices=[('3.0.1', '3.0.1')])
+    gluu_version = SelectField('Gluu Server Version', choices=[('3.0.1', '3.0.1'), ('3.0.2', '3.0.2')])
     hostname = StringField('Hostname *', validators=[DataRequired()])
     ip = StringField('IP Address *', validators=[DataRequired(), IPAddress()])
     port = IntegerField('Port *', validators=[DataRequired()])
