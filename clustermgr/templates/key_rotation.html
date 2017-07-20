@@ -52,6 +52,18 @@
                 </label>
                 <input id="add-oxauth-hostname" type="text" name="hostname" class="form-control">
             </div>
+            <div class="form-group">
+                {{ form.gluu_server.label(class="control-label") }}
+                <div class="input-group">
+                    {{ form.gluu_server(class="form-control") }}
+                </div>
+            </div>
+            <div class="form-group">
+                {{ form.gluu_version.label(class="control-label") }}
+                <div class="input-group">
+                    {{ form.gluu_version(class="form-control") }}
+                </div>
+            </div>
             <a href="javascript:void(0)" class="btn btn-info" id="add-oxauth">Add oxAuth server</a>
 
             <div class="form-group" id="oxauth-servers-container">
@@ -62,6 +74,8 @@
                         <thead>
                             <tr>
                                 <th>Hostname</th>
+                                <th>Gluu Server?</th>
+                                <th>Version</th>
                                 <th>Remove?</th>
                             </tr>
                         </thead>
@@ -69,6 +83,8 @@
                             {% for oxauth in oxauth_servers %}
                             <tr id="oxauth-server-{{ oxauth.id }}">
                                 <td>{{ oxauth.hostname }}</td>
+                                <td>{{ oxauth.gluu_server }}</td>
+                                <td>{{ oxauth.get_version }}</td>
                                 <td>
                                     <label class="custom-control custom-checkbox">
                                         <input type="checkbox" class="custom-control-input" data="{{ oxauth.id }}">

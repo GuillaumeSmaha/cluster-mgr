@@ -143,7 +143,15 @@ class OxauthServer(db.Model):
 
     @property
     def jks_path(self):
+        if not self.gluu_server:
+            return "/etc/certs/oxauth-keys.jks"
         return "/opt/gluu-server-{}/etc/certs/oxauth-keys.jks".format(self.gluu_version)
+
+    @property
+    def get_version(self):
+        if not self.gluu_server:
+            return ""
+        return self.gluu_version
 
 
 class LoggingServer(db.Model):

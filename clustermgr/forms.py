@@ -80,6 +80,11 @@ class KeyRotationForm(FlaskForm):
     oxeleven_url = StringField("oxEleven URL")
     oxeleven_token = PasswordField("oxEleven Token")
     inum_appliance = StringField("Inum Appliance", validators=[DataRequired()])
+    gluu_server = BooleanField('Installed inside chroot-ed Gluu Server', default=True)
+    gluu_version = SelectField('Gluu Server Version', choices=[
+        ('3.0.1', '3.0.1'),
+        ('3.0.2', '3.0.2'),
+    ])
 
     def validate_oxeleven_url(form, field):
         if not field.data and form.type.data == "oxeleven":
