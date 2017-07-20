@@ -418,9 +418,10 @@ def copy_certificate(server, certname):
 
 
 def mirror(taskid, s1, s2):
-    with settings(warn_only=True):
-        execute(copy_certificate, s1, s2.hostname,
-                hosts=["root@{}".format(s1.hostname)])
+    if s2.protocol == 'ldaps':
+        with settings(warn_only=True):
+            execute(copy_certificate, s1, s2.hostname,
+                    hosts=["root@{}".format(s1.hostname)])
 
     appconf = AppConfiguration.query.first()
     cnuser = 'cn=admin,cn=config'
@@ -428,11 +429,14 @@ def mirror(taskid, s1, s2):
     vals = {'r_id': s2.id, 'phost': s2.hostname, 'pport': s2.port,
             'replication_dn': appconf.replication_dn,
             'replication_pw': appconf.replication_pw,
-            'pcert': 'tls_cacert="/opt/symas/ssl/{0}.crt"'.format(s2.hostname),
             'pprotocol': s2.protocol,
             }
+    if s2.protocol == 'ldaps':
+        vals['pcert'] = 'tls_cacert="/opt/symas/ssl/{0}.crt"'.format(s2.hostname)
+    else:
+        vals['pcert'] = ''
     f = open(os.path.join(app.root_path, 'templates', 'slapd', 'mirror.conf'))
-    olcSyncrepl = f.read().format(**vals)
+    olcSyncrepl = f.read().format(**vals).strip()
     f.close()
     # Find the dn of the o=gluu database in cn=config
     with ldap_conn(s1.hostname, s1.port, cnuser, s1.admin_pw, starttls(s1)) \
@@ -502,7 +506,7 @@ def setup_server(self, server_id, conffile):
 
     # MirrorMode
     appconf = AppConfiguration.query.first()
-    if appconf.topology != 'mirrormode':
+    if appconf.topology != 'mirror':
         return
 
     providers = LDAPServer.query.filter_by(role="provider").all()
@@ -529,13 +533,12 @@ def setup_server(self, server_id, conffile):
                     s1.hostname), "success")
     except:
         wlogger.log(tid, "Mirroring encountered an exception", "fail")
-        t, v = sys.exc_info()[:2]
-        wlogger.log(tid, "%s %s" % (t, v), "debug")
-        print sys.exc_info()[2]
+        v = sys.exc_info()[1]
+        wlogger.log(tid, str(v), "debug")
 
 
 @celery.task(bind=True)
-def reconfigure(self, server_id):
+def remove_mirroring(self, server_id):
     server_id = int(server_id)
     taskid = self.request.id
     s = LDAPServer.query.get(server_id)
@@ -562,11 +565,14 @@ def reconfigure(self, server_id):
             wlogger.log(taskid, "Removed Mirror-mode configuration. Now the"
                         " server will work as provider for delta-syncrepl",
                         "success")
-            return True
     except Exception as e:
         wlogger.log(taskid, "Failed to remove mirror configuration from %s."
                     " Encountered error %s" % (s.hostname, e), "error")
         return False
+
+    conf = AppConfiguration.query.first()
+    conf.topology = 'delta'
+    db.session.commit()
 
 
 def modify_oxauth_config(kr, pub_keys=None, openid_jks_pass=""):

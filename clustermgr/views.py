@@ -14,7 +14,7 @@ from .models import LDAPServer, AppConfiguration, KeyRotation, \
 from .forms import NewProviderForm, NewConsumerForm, AppConfigForm, \
     KeyRotationForm, SchemaForm, LoggingServerForm, LDIFForm
 from .tasks import initialize_provider, replicate, setup_server, \
-    rotate_pub_keys, reconfigure
+    rotate_pub_keys, remove_mirroring
 from .utils import ldap_encode
 from .utils import encrypt_text
 from .utils import generate_random_key
@@ -109,16 +109,16 @@ def setup_cluster(topology):
 
 @app.route('/server/new/<stype>/', methods=['GET', 'POST'])
 def new_server(stype):
-    servers = LDAPServer.query.all()
+    providers = LDAPServer.query.filter_by(role="provider").all()
     config = AppConfiguration.query.first()
     if stype == 'provider':
         form = NewProviderForm()
-        if len(servers) == 1 and config.topology == 'delta':
+        if len(providers) == 1 and config.topology == 'delta':
             flash("Only 1 provider can be configured in the \"delta-syncrepl\""
                   " topology. Kindly change the topology and try again!",
                   "danger")
             return redirect(url_for('home'))
-        elif len(servers) == 2 and config.topology == 'mirror':
+        elif len(providers) == 2 and config.topology == 'mirror':
             flash("Only 2 providers can be configured in the \"mirror mode\""
                   " topology. Kindly change the topology and try again!",
                   "danger")
@@ -126,9 +126,7 @@ def new_server(stype):
 
     elif stype == 'consumer':
         form = NewConsumerForm()
-        form.provider.choices = [
-                (p.id, p.hostname) for p in LDAPServer.query.filter_by(
-                    role='provider').all()]
+        form.provider.choices = [(p.id, p.hostname) for p in providers]
         if len(form.provider.choices) == 0:
             return redirect(url_for('error_page', error='no-provider'))
 
@@ -225,7 +223,7 @@ def setup_ldap_server(server_id, step):
     elif step == 3:
         appconf = AppConfiguration.query.first()
         provider_count = LDAPServer.query.filter_by(role='provider').count()
-        if appconf.topology == 'mirrormode' and provider_count == 1:
+        if appconf.topology == 'mirror' and provider_count == 1:
             nextpage = 'provider'
         else:
             nextpage = 'dashboard'
@@ -312,7 +310,7 @@ def change_topology(target):
                 db.session.delete(provider)
                 db.session.commit()
         # reconfigure the provider
-        task = reconfigure.delay(server_id)
+        task = remove_mirroring.delay(server_id)
         head = "Reconfiguring Cluster to %s topology" % target
         return render_template('logger.html', heading=head, task=task)
 

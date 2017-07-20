@@ -75,7 +75,7 @@
               <div class="panel-heading">
                   <div class="row">
                       <div class="col-xs-3">
-                          {% if data.last_test %}
+                          {% if conf.last_test %}
                           <h1><i class="glyphicon glyphicon-ok"></i></h1>
                           {% else %}
                           <h1><i class="glyphicon glyphicon-remove"></i></h1>
@@ -86,7 +86,7 @@
                       </div>
                   </div>
               </div>
-              <a href="{{ url_for('test_replication') }}" class="{% if data.last_test %}text-success{% else %}text-danger{% endif %}">
+              <a href="{{ url_for('test_replication') }}" class="{% if conf.last_test %}text-success{% else %}text-danger{% endif %}">
                   <div class="panel-body">
                       <span class="pull-left">Run Test</span>
                       <span class="pull-right"><i class="glyphicon glyphicon-circle-arrow-right"></i></span>
