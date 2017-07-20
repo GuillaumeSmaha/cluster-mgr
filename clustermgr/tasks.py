@@ -303,7 +303,6 @@ def generate_slapd(taskid, server, conffile):
 
     wlogger.log(taskid, "Checking status of LDAP server")
     status = run_command(taskid, 'service solserver status')
-    print status
 
     if 'is running' in status:
         wlogger.log(taskid, "Stopping LDAP Server")
