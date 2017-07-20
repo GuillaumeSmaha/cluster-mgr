@@ -7,6 +7,7 @@ from flask_sqlalchemy import SQLAlchemy
 from celery import Celery
 from flask_script import Manager
 from flask_migrate import Migrate, MigrateCommand
+from flask_wtf.csrf import CSRFProtect
 
 
 def make_celery(app):
@@ -86,6 +87,8 @@ db = SQLAlchemy(app)
 celery = make_celery(app)
 
 wlogger = WebLogger(app)
+
+csrf = CSRFProtect(app)
 
 migrate = Migrate(
     app, db, directory=os.path.join(os.path.dirname(__file__), "migrations"),

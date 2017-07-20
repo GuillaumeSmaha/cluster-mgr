@@ -72,9 +72,9 @@ function updateLog(){
                 var entry = logitem(err_msg, 'warning');
                 $('#logger').append(entry);
                 entry.scrollIntoView(false);
-                $('#retry').show();
+                $('#retry').show().scrollIntoView(false);
             } else {
-                $('#home').show();
+                $('#home').show().scrollIntoView(false);
             }
         }
     });

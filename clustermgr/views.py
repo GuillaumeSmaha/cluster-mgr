@@ -14,7 +14,7 @@ from .models import LDAPServer, AppConfiguration, KeyRotation, \
 from .forms import NewProviderForm, NewConsumerForm, AppConfigForm, \
     KeyRotationForm, SchemaForm, LoggingServerForm, LDIFForm
 from .tasks import initialize_provider, replicate, setup_server, \
-    rotate_pub_keys
+    rotate_pub_keys, reconfigure
 from .utils import ldap_encode
 from .utils import encrypt_text
 from .utils import generate_random_key
@@ -28,15 +28,15 @@ def home():
     if len(servers) == 0:
         return render_template('intro.html')
 
-    data = {"provider": 0, "consumer": 0, "topology": config.topology,
-            "last_test": config.last_test}
+    data = {"provider": 0, "consumer": 0}
     for server in servers:
         if server.role == 'provider':
             data["provider"] += 1
         elif server.role == 'consumer':
             data["consumer"] += 1
 
-    return render_template('dashboard.html', data=data, servers=servers)
+    return render_template('dashboard.html', data=data, servers=servers,
+                           conf=config)
 
 
 @app.route('/error/<error>/')
@@ -119,7 +119,7 @@ def new_server(stype):
                   "danger")
             return redirect(url_for('home'))
         elif len(servers) == 2 and config.topology == 'mirror':
-            flash("Only 1 provider can be configured in the \"mirror mode\""
+            flash("Only 2 providers can be configured in the \"mirror mode\""
                   " topology. Kindly change the topology and try again!",
                   "danger")
             return redirect(url_for('home'))
@@ -135,6 +135,7 @@ def new_server(stype):
     if form.validate_on_submit():
         s = LDAPServer()
         s.hostname = form.hostname.data
+        s.ip = form.ip.data
         s.port = form.port.data
         s.role = stype
         s.protocol = form.protocol.data
@@ -291,6 +292,56 @@ def test_replication():
     task = replicate.delay()
     head = "Replication Test"
     return render_template('logger.html', heading=head, task=task)
+
+
+@app.route('/change_topology/<target>/', methods=['GET', 'POST'])
+def change_topology(target):
+    conf = AppConfiguration.query.first()
+    if request.method == 'POST':
+        if not request.form.get('server'):
+            servers = LDAPServer.query.filter_by(role="provider").all()
+            flash("No server was selected for re-configuration. Kindly select"
+                  " a server and try again.", "warning")
+            return render_template('choose_provider_form.html', servers=servers)
+
+        server_id = int(request.form['server'])
+        # remove all the other providers
+        providers = LDAPServer.query.filter_by(role="provider").all()
+        for provider in providers:
+            if provider.id != server_id:
+                db.session.delete(provider)
+                db.session.commit()
+        # reconfigure the provider
+        task = reconfigure.delay(server_id)
+        head = "Reconfiguring Cluster to %s topology" % target
+        return render_template('logger.html', heading=head, task=task)
+
+    if target == 'mirror' and conf.topology == 'delta':
+        conf = AppConfiguration.query.first()
+        conf.topology = target
+        db.session.commit()
+        flash("Reconfiguring cluster: Add another provider to setup mirror mode.",
+              "info")
+        return redirect(url_for('setup_cluster', topology=target))
+    elif target == 'delta' and conf.topology == 'mirror':
+        servers = LDAPServer.query.filter_by(role="provider").all()
+        return render_template('choose_provider_form.html', servers=servers)
+
+    if target == conf.topology:
+        flash("Nothing to do. The requested topology is same as the one "
+              "currently in use.", "warning")
+        return redirect(url_for('home'))
+
+    # default redirect to home
+    return redirect(url_for('home'))
+
+
+@app.route('/reconfigure/<topology>/<provider_id>/')
+def reconfigure_topology(topology, provider_id):
+    if topology == 'mirror':
+        # there is already one server con
+        return
+    return
 
 
 @app.route("/key_rotation", methods=["GET", "POST"])

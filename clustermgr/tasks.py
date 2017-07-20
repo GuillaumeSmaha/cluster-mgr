@@ -41,7 +41,7 @@ def run_command(taskid, command):
     errlog = StringIO.StringIO()
 
     wlogger.log(taskid, command, "debug")
-    output = run(command, stdout=outlog, stderr=errlog)
+    output = run(command, stdout=outlog, stderr=errlog, timeout=10)
     if outlog.getvalue():
         wlogger.log(taskid, outlog.getvalue(), "debug")
     if errlog.getvalue():
@@ -128,7 +128,6 @@ def initialize_provider(self, server_id, use_ldif):
 
     if initialized:
         s.initialized = True
-        db.session.add(s)
         db.session.commit()
 
 
@@ -304,6 +303,7 @@ def generate_slapd(taskid, server, conffile):
 
     wlogger.log(taskid, "Checking status of LDAP server")
     status = run_command(taskid, 'service solserver status')
+    print status
 
     if 'is running' in status:
         wlogger.log(taskid, "Stopping LDAP Server")
@@ -497,8 +497,7 @@ def setup_server(self, server_id, conffile):
     msgs = wlogger.get_messages(tid)
     setup_success = True
     for msg in msgs:
-        msg = json.loads(msg)
-        setup_success = setup_success and msg.level != 'error'
+        setup_success = setup_success and msg['level'] != 'error'
     server.setup = setup_success
     db.session.commit()
 
@@ -507,7 +506,7 @@ def setup_server(self, server_id, conffile):
     if appconf.topology != 'mirrormode':
         return
 
-    providers = LDAPServer.query.all()
+    providers = LDAPServer.query.filter_by(role="provider").all()
     if len(providers) < 2:
         wlogger.log(tid, "The cluster is configured to work in Mirror Mode. "
                     "Add another provider to setup Mirror Mode.")
@@ -521,8 +520,6 @@ def setup_server(self, server_id, conffile):
     s1, s2 = providers
     s1.provider_id = s2.id
     s2.provider_id = s1.id
-    db.session.add(s1)
-    db.session.add(s2)
     db.session.commit()
     try:
         mirror(self.request.id, s1, s2)
@@ -536,6 +533,41 @@ def setup_server(self, server_id, conffile):
         t, v = sys.exc_info()[:2]
         wlogger.log(tid, "%s %s" % (t, v), "debug")
         print sys.exc_info()[2]
+
+
+@celery.task(bind=True)
+def reconfigure(self, server_id):
+    server_id = int(server_id)
+    taskid = self.request.id
+    s = LDAPServer.query.get(server_id)
+    cnuser = 'cn=admin,cn=config'
+
+    try:
+        with ldap_conn(s.hostname, s.port, cnuser, s.admin_pw, starttls(s)) \
+                as con:
+            result = con.search_s("cn=config", ldap.SCOPE_SUBTREE,
+                                  "(objectclass=olcMdbConfig)", [])
+            dn, dbconfig = get_olcdb_entry(result)
+            if not dbconfig:
+                wlogger.log(taskid, "Connot find the Config for o=gluu database.",
+                            "error")
+                wlogger.log(taskid, result, 'debug')
+                return
+            modlist = []
+            if 'olcSyncrepl' in dbconfig:
+                modlist = [(ldap.MOD_DELETE, 'olcSyncrepl', None)]
+            if 'olcMirrorMode' in dbconfig:
+                modlist = [(ldap.MOD_DELETE, 'olcMirrorMode', None)]
+
+            con.modify_s(dn, modlist)
+            wlogger.log(taskid, "Removed Mirror-mode configuration. Now the"
+                        " server will work as provider for delta-syncrepl",
+                        "success")
+            return True
+    except Exception as e:
+        wlogger.log(taskid, "Failed to remove mirror configuration from %s."
+                    " Encountered error %s" % (s.hostname, e), "error")
+        return False
 
 
 def modify_oxauth_config(kr, pub_keys=None, openid_jks_pass=""):
