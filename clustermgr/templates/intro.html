@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block content %}
+
+  {# Introduction page starts here #}
+    <h2 class="page-header">Replication Manager</h2>
+    <p>Gluu Replication Manager lets an admin to create, test and maintain a server cluster using OpenLDAP replication. The currently supported topologies for clustering are:</p>
+    <ul>
+        <li>Delta-Syncrepl</li>
+        <li>Mirror Mode</li>
+    </ul>
+    <div class="row">
+        <div class="col-md-6 col-sm-12">
+            <div class="panel panel-info">
+                <div class="panel-heading">
+                    <h3 class="panel-title">Delta-Syncrepl</h3>
+                </div>
+                <div class="panel-body">
+                    <img class="center-block" src="{{ url_for('static', filename='images/Delta-Syncrepl.png')}}" alt="Delta Syncrepl Topology">
+                    <hr>
+                    <p>Key Features:</p>
+                    <ul>
+                        <li>1 Provider - READ and WRITE</li>
+                        <li>Multiple Consumers - READ Only</li>
+                    </ul>
+                    <a class="btn btn-info btn-block" href="{{ url_for('setup_cluster', topology='delta') }}">Setup</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 col-sm-12">
+            <div class="panel panel-warning">
+                <div class="panel-heading">
+                    <h3 class="panel-title">Mirror Mode</h3>
+                </div>
+                <div class="panel-body">
+                    <img src="{{ url_for('static', filename='images/MirrorMode.png')}}" alt="Delta Syncrepl Topology">
+                    <hr>
+                    <p>Key Features:</p>
+                    <ul>
+                        <li>2 Providers - READ and WRITE</li>
+                        <li>Multiple Consumers under each provider - READ Only</li>
+                    </ul>
+                    <a class="btn btn-warning btn-block" href="{{ url_for('setup_cluster', topology='mirror') }}">Setup</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+{% endblock %}

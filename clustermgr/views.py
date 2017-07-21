@@ -14,7 +14,7 @@ from .models import LDAPServer, AppConfiguration, KeyRotation, \
 from .forms import NewProviderForm, NewConsumerForm, AppConfigForm, \
     KeyRotationForm, SchemaForm, LoggingServerForm, LDIFForm
 from .tasks import initialize_provider, replicate, setup_server, \
-    rotate_pub_keys
+    rotate_pub_keys, remove_mirroring
 from .utils import ldap_encode
 from .utils import encrypt_text
 from .utils import generate_random_key
@@ -25,7 +25,18 @@ from .utils import generate_random_iv
 def home():
     servers = LDAPServer.query.all()
     config = AppConfiguration.query.first()
-    return render_template('index.html', servers=servers, config=config)
+    if len(servers) == 0:
+        return render_template('intro.html')
+
+    data = {"provider": 0, "consumer": 0}
+    for server in servers:
+        if server.role == 'provider':
+            data["provider"] += 1
+        elif server.role == 'consumer':
+            data["consumer"] += 1
+
+    return render_template('dashboard.html', data=data, servers=servers,
+                           conf=config)
 
 
 @app.route('/error/<error>/')
@@ -98,19 +109,31 @@ def setup_cluster(topology):
 
 @app.route('/server/new/<stype>/', methods=['GET', 'POST'])
 def new_server(stype):
+    providers = LDAPServer.query.filter_by(role="provider").all()
+    config = AppConfiguration.query.first()
     if stype == 'provider':
         form = NewProviderForm()
+        if len(providers) == 1 and config.topology == 'delta':
+            flash("Only 1 provider can be configured in the \"delta-syncrepl\""
+                  " topology. Kindly change the topology and try again!",
+                  "danger")
+            return redirect(url_for('home'))
+        elif len(providers) == 2 and config.topology == 'mirror':
+            flash("Only 2 providers can be configured in the \"mirror mode\""
+                  " topology. Kindly change the topology and try again!",
+                  "danger")
+            return redirect(url_for('home'))
+
     elif stype == 'consumer':
         form = NewConsumerForm()
-        form.provider.choices = [
-                (p.id, p.hostname) for p in LDAPServer.query.filter_by(
-                    role='provider').all()]
+        form.provider.choices = [(p.id, p.hostname) for p in providers]
         if len(form.provider.choices) == 0:
             return redirect(url_for('error_page', error='no-provider'))
 
     if form.validate_on_submit():
         s = LDAPServer()
         s.hostname = form.hostname.data
+        s.ip = form.ip.data
         s.port = form.port.data
         s.role = stype
         s.protocol = form.protocol.data
@@ -200,7 +223,7 @@ def setup_ldap_server(server_id, step):
     elif step == 3:
         appconf = AppConfiguration.query.first()
         provider_count = LDAPServer.query.filter_by(role='provider').count()
-        if appconf.topology == 'mirrormode' and provider_count == 1:
+        if appconf.topology == 'mirror' and provider_count == 1:
             nextpage = 'provider'
         else:
             nextpage = 'dashboard'
@@ -269,6 +292,56 @@ def test_replication():
     return render_template('logger.html', heading=head, task=task)
 
 
+@app.route('/change_topology/<target>/', methods=['GET', 'POST'])
+def change_topology(target):
+    conf = AppConfiguration.query.first()
+    if request.method == 'POST':
+        if not request.form.get('server'):
+            servers = LDAPServer.query.filter_by(role="provider").all()
+            flash("No server was selected for re-configuration. Kindly select"
+                  " a server and try again.", "warning")
+            return render_template('choose_provider_form.html', servers=servers)
+
+        server_id = int(request.form['server'])
+        # remove all the other providers
+        providers = LDAPServer.query.filter_by(role="provider").all()
+        for provider in providers:
+            if provider.id != server_id:
+                db.session.delete(provider)
+                db.session.commit()
+        # reconfigure the provider
+        task = remove_mirroring.delay(server_id)
+        head = "Reconfiguring Cluster to %s topology" % target
+        return render_template('logger.html', heading=head, task=task)
+
+    if target == 'mirror' and conf.topology == 'delta':
+        conf = AppConfiguration.query.first()
+        conf.topology = target
+        db.session.commit()
+        flash("Reconfiguring cluster: Add another provider to setup mirror mode.",
+              "info")
+        return redirect(url_for('setup_cluster', topology=target))
+    elif target == 'delta' and conf.topology == 'mirror':
+        servers = LDAPServer.query.filter_by(role="provider").all()
+        return render_template('choose_provider_form.html', servers=servers)
+
+    if target == conf.topology:
+        flash("Nothing to do. The requested topology is same as the one "
+              "currently in use.", "warning")
+        return redirect(url_for('home'))
+
+    # default redirect to home
+    return redirect(url_for('home'))
+
+
+@app.route('/reconfigure/<topology>/<provider_id>/')
+def reconfigure_topology(topology, provider_id):
+    if topology == 'mirror':
+        # there is already one server con
+        return
+    return
+
+
 @app.route("/key_rotation", methods=["GET", "POST"])
 def key_rotation():
     kr = KeyRotation.query.first()
@@ -311,6 +384,15 @@ def key_rotation():
 def oxauth_server():
     if request.method == "POST":
         hostname = request.form.get("hostname")
+        gluu_server = request.form.get("gluu_server")
+        gluu_version = request.form.get("gluu_version")
+
+        if gluu_server == "true":
+            gluu_server = True
+        else:
+            gluu_server = False
+            gluu_version = ""
+
         if not hostname:
             return jsonify({
                 "status": 400,
@@ -320,16 +402,22 @@ def oxauth_server():
 
         server = OxauthServer()
         server.hostname = hostname
+        server.gluu_server = gluu_server
+        server.gluu_version = gluu_version
         db.session.add(server)
         db.session.commit()
         return jsonify({
             "id": server.id,
             "hostname": server.hostname,
+            "gluu_server": server.gluu_server,
+            "get_version": server.get_version,
         }), 201
 
     servers = [{
         "id": srv.id,
         "hostname": srv.hostname,
+        "version": srv.get_version,
+        "gluu_server": srv.gluu_server,
     } for srv in OxauthServer.query]
     return jsonify(servers)
 

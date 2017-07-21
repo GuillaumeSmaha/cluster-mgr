@@ -59,7 +59,7 @@ function updateLog(){
         for(var i=logged_msgs; i<logs.length; i++){
             var entry = logitem(logs[i].msg, logs[i].level);
             $('#logger').append(entry);
-            entry.scrollIntoView(false);
+            entry.scrollIntoView({behavior: "smooth", block: "end"});
             if(logs[i].level == 'error' || logs[i].level == 'fail'){
                 errors++;
             }
@@ -72,9 +72,9 @@ function updateLog(){
                 var entry = logitem(err_msg, 'warning');
                 $('#logger').append(entry);
                 entry.scrollIntoView(false);
-                $('#retry').show();
+                $('#retry').show()[0].scrollIntoView({behavior: "smooth", block: "end"});
             } else {
-                $('#home').show();
+                $('#home').show()[0].scrollIntoView({behavior: "smooth", block: "end"});
             }
         }
     });

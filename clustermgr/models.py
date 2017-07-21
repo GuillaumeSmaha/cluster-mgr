@@ -8,22 +8,50 @@ from sqlalchemy.orm import relationship, backref
 
 class LDAPServer(db.Model):
     __tablename__ = "ldap_server"
+
     id = db.Column(db.Integer, primary_key=True)
+
+    # hostname of the ldap server
     hostname = db.Column(db.String(150), unique=True)
+
+    # ip address of the server
     ip = db.Column(db.String(45))
+
+    # port in which the LDAP server is  listening
     port = db.Column(db.Integer)
+
+    # role is either provider or consumer
     role = db.Column(db.String(10))
+
+    # LDAP communication protocol ldap, ldaps, starttls
     protocol = db.Column(db.String(10))
+
+    # location of the certificates in the server
     tls_cacert = db.Column(db.Text)
     tls_servercert = db.Column(db.Text)
     tls_serverkey = db.Column(db.Text)
+
+    # whether the replication user has been added to the DIT
+    # and the server is setup with replication
     initialized = db.Column(db.Boolean)
+
+    # whether the server has been setup with proper configuration
     setup = db.Column(db.Boolean)
+
+    # rootDN password for the LDAP server
     admin_pw = db.Column(db.String(150))
+
+    # provider for the consumer LDAP server
     provider_id = db.Column(db.Integer, db.ForeignKey('ldap_server.id'))
+
+    # consumers connected to a provider
     consumers = relationship("LDAPServer", backref=backref(
         'provider', remote_side=[id]))
+
+    # is the LDAP server inside the gluu server chroot container
     gluu_server = db.Column(db.Boolean)
+
+    # gluu server version
     gluu_version = db.Column(db.String(10))
 
     def __repr__(self):
@@ -32,11 +60,23 @@ class LDAPServer(db.Model):
 
 class AppConfiguration(db.Model):
     __tablename__ = 'appconfig'
+
     id = db.Column(db.Integer, primary_key=True)
+
+    # the DN of the replication user
     replication_dn = db.Column(db.String(200))
+
+    # the password for replication user
     replication_pw = db.Column(db.String(200))
+
+    # folder with the certificates for the app to use
     certificate_folder = db.Column(db.String(200))
+
+    # the topology of the cluster
     topology = db.Column(db.String(30))
+
+    # the result of the last replication test
+    last_test = db.Column(db.Boolean)
 
 
 class KeyRotation(db.Model):
@@ -103,7 +143,15 @@ class OxauthServer(db.Model):
 
     @property
     def jks_path(self):
+        if not self.gluu_server:
+            return "/etc/certs/oxauth-keys.jks"
         return "/opt/gluu-server-{}/etc/certs/oxauth-keys.jks".format(self.gluu_version)
+
+    @property
+    def get_version(self):
+        if not self.gluu_server:
+            return ""
+        return self.gluu_version
 
 
 class LoggingServer(db.Model):

@@ -21,11 +21,13 @@ $(function() {
     // add new oxAuth server
     $("#add-oxauth").click(function() {
         var hostname = $("input#add-oxauth-hostname").val();
+        var gluu_server = $("input#gluu_server").is(":checked");
+        var gluu_version = $("select#gluu_version").val();
 
         if (hostname != "" | hostname === undefined) {
             $.post(
                 "/api/oxauth_server",
-                {"hostname": hostname},
+                {"hostname": hostname, "gluu_server": gluu_server, "gluu_version": gluu_version},
                 function(data) {
                     var html = "";
 
@@ -36,6 +38,8 @@ $(function() {
                         html += "    <thead>";
                         html += "      <tr>";
                         html += "        <th>Hostname</th>";
+                        html += "        <th>Gluu Server?</th>";
+                        html += "        <th>Version</th>";
                         html += "        <th>Remove?</th>";
                         html += "      </tr>";
                         html += "    </thead>";
@@ -50,6 +54,8 @@ $(function() {
 
                     html += "<tr id='oxauth-server-" + data.id + "'>";
                     html += "  <td>" + data.hostname + "</td>";
+                    html += "  <td>" + data.gluu_server + "</td>";
+                    html += "  <td>" + data.get_version + "</td>";
                     html += "  <td>";
                     html += "    <label class='custom-control custom-checkbox'>";
                     html += "      <input type='checkbox' class='custom-control-input' data='" + data.id + "'>";
