@@ -13,7 +13,7 @@ from fabric.contrib.files import exists
 from ldap.modlist import modifyModlist
 
 from .application import celery, db, wlogger, app
-from .models import LDAPServer, AppConfiguration, KeyRotation, OxauthServer
+from .models import LDAPServer, AppConfiguration, KeyRotation, OxauthServer, OxelevenKeyID
 from .ldaplib import ldap_conn, search_from_ldap
 from .utils import decrypt_text, random_chars
 from .ox11 import generate_key, delete_key
@@ -663,28 +663,33 @@ def _rotate_keys(kr, javalibs_dir, jks_path):
     if kr.type == "oxeleven":
         token = decrypt_text(kr.oxeleven_token, kr.oxeleven_token_key,
                              kr.oxeleven_token_iv)
-        kid = kr.oxeleven_kid
 
         try:
             # delete old keys first
             print "deleting old keys"
-            status_code, out = delete_key(kr.oxeleven_url, kid, token)
-            if status_code == 200 and out["deleted"]:
-                kr.oxeleven_kid = ""
-            elif status_code == 401:
-                print "insufficient access to call oxEleven API"
+            for key_id in OxelevenKeyID.query:
+                status_code, out = delete_key(kr.oxeleven_url, key_id.kid, token)
+                if status_code == 200 and out["deleted"]:
+                    db.session.delete(key_id)
+                    db.session.commit()
+                elif status_code == 401:
+                    print "insufficient access to call oxEleven API"
 
             # obtain new keys
             print "obtaining new keys"
-            status_code, out = generate_key(kr.oxeleven_url, token=token)
-            if status_code == 200:
-                kr.oxeleven_kid = out["kid"]
-                pub_keys = [out]
-            elif status_code == 401:
-                print "insufficient access to call oxEleven API"
-            else:
-                print "unable to obtain the keys from oxEleven; " \
-                      "status code={}".format(status_code)
+            for algo in ["RS256", "RS384", "RS512", "ES256", "ES384", "ES512"]:
+                status_code, out = generate_key(kr.oxeleven_url, algo, token=token)
+                if status_code == 200:
+                    key_id = OxelevenKeyID()
+                    key_id.kid = out["kid"]
+                    db.session.add(key_id)
+                    db.session.commit()
+                    pub_keys.append(out)
+                elif status_code == 401:
+                    print "insufficient access to call oxEleven API"
+                else:
+                    print "unable to obtain the keys from oxEleven; " \
+                        "status code={}".format(status_code)
         except requests.exceptions.ConnectionError:
             print "unable to establish connection to oxEleven; skipping task"
     else:

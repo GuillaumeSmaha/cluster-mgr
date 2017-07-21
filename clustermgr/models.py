@@ -106,18 +106,8 @@ class KeyRotation(db.Model):
     # random iv for token encryption
     oxeleven_token_iv = db.Column(db.LargeBinary)
 
-    # pubkey ID
-    oxeleven_kid = db.Column(db.String(255))
-
     # inum appliance, useful for searching oxAuth config in LDAP
     inum_appliance = db.Column(db.String(255))
-
-    # remote path of oxauth-keys.jks file,
-    # i.e. /opt/gluu-server-3.0.1/etc/certs/oxauth-keys.jks
-    jks_remote_path = db.Column(
-        db.String(255),
-        default="/opt/gluu-server-3.0.1/etc/certs/oxauth-keys.jks",
-    )
 
     def should_rotate(self):
         # determine whether we need to rotate the key
@@ -184,3 +174,10 @@ class LoggingServer(db.Model):
 
     # # encrypted password; need to decrypt it before using the value
     # mq_password = db.Column(db.String(255))
+
+
+class OxelevenKeyID(db.Model):
+    __tablename__ = "oxeleven_key_id"
+
+    id = db.Column(db.Integer, primary_key=True)
+    kid = db.Column(db.String(255))
