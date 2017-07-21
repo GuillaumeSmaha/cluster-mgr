@@ -136,7 +136,8 @@
                 <a class="btn btn-success btn-xs" href="{{ url_for('initialize', server_id=server.id) }}">Reinitialize</a>
                 <a class="btn btn-primary btn-xs" href="{{ url_for('new_server', stype='consumer') }}">Add Consumer</a>
             {% endif %}
-            <a class="btn btn-danger btn-xs" href="{{ url_for('remove_server', server_id=server.id) }}">Remove</a>
+            <a class="btn btn-danger btn-xs" href="#" data-toggle="modal" data-target="#remove_alert_modal" data-serverid="{{server.id}}"
+                data-hostname="{{ server.hostname }}">Remove</a>
         </td>
       </tr>
       {% endfor %}
@@ -168,6 +169,40 @@
             </div><!-- /.modal-content -->
         </div><!-- /.modal-dialog -->
     </div><!-- /.modal -->
+
+    <!-- Alert Modal before a server is removed from the cluster -->
+    <div id="remove_alert_modal" class="modal fade" tabindex="-1" role="dialog">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                    <h4 class="modal-title">Remove Server</h4>
+                </div>
+                <div class="modal-body">
+                   <p>This will remove the server from the cluster. Are you sure you want it removed?</p>
+                </div>
+                <div class="modal-footer">
+                    <a id="remove_url" class="btn btn-danger" href="#">Remove</a>
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                </div>
+            </div><!-- /.modal-content -->
+        </div><!-- /.modal-dialog -->
+    </div><!-- /.modal -->
+
+
+
 {% endblock %}
 {% block js %}
+<script>
+    $('#remove_alert_modal').on('show.bs.modal', function (event) {
+        var button = $(event.relatedTarget);
+        var server_id = button.data('serverid');
+        var hostname = button.data('hostname');
+        var remove_server_url = '{{ url_for("remove_server", server_id=9999) }}';
+        remove_server_url = remove_server_url.replace('9999', server_id);
+        var modal = $(this)
+        modal.find('.modal-title').text('Remove ' + hostname);
+        $('#remove_url').attr('href', remove_server_url);
+    });
+</script>
 {% endblock %}
