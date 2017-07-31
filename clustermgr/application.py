@@ -7,7 +7,12 @@ from flask_sqlalchemy import SQLAlchemy
 from celery import Celery
 from flask_script import Manager
 from flask_migrate import Migrate, MigrateCommand
-from flask_wtf.csrf import CSRFProtect
+
+try:
+    from flask_wtf.csrf import CSRFProtect
+except ImportError:
+    # backward-compatibility
+    from flask_wtf.csrf import CsrfProtect as CSRFProtect
 
 
 def make_celery(app):
