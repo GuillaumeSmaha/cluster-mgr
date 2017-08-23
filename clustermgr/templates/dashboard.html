@@ -3,28 +3,6 @@
 
   <h2 class="page-header">Dashboard</h2>
   <div class="row">
-      <!-- topology info box -->
-      <div class="col-xs-12 col-sm-6 col-md-3">
-          <div class="panel panel-default">
-              <div class="panel-heading">
-                  <div class="row">
-                      <div class="col-xs-3">
-                          <h1><i class="glyphicon glyphicon-globe"></i></h1>
-                      </div>
-                      <div class="col-xs-9 text-right">
-                          <h3>Topology <br> <small>{{ conf.topology }}</small></h3>
-                      </div>
-                  </div>
-              </div>
-              <a class="text-muted" data-toggle="modal" data-target="#topology_modal">
-                  <div class="panel-body">
-                      <span class="pull-left">Change</span>
-                      <span class="pull-right"><i class="glyphicon glyphicon-circle-arrow-right"></i></span>
-                      <div class="clearfix"></div>
-                  </div>
-              </a>
-          </div>
-      </div>
       <!-- provider info box -->
       <div class="col-xs-12 col-sm-6 col-md-3">
           <div class="panel panel-info">
@@ -38,7 +16,7 @@
                       </div>
                   </div>
               </div>
-              <a href="{{ url_for('cluster.setup_cluster', topology=conf.topology) }}" class="text-info">
+              <a href="{{ url_for('cluster.setup_cluster') }}" class="text-info">
                   <div class="panel-body">
                       <span class="pull-left">Add Provider</span>
                       <span class="pull-right"><i class="glyphicon glyphicon-circle-arrow-right"></i></span>
@@ -146,30 +124,6 @@
 
 {% endblock %}
 {% block modals %}
-    <!-- Modal that contains the change topology options -->
-    <div id="topology_modal" class="modal fade" tabindex="-1" role="dialog">
-        <div class="modal-dialog" role="document">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-                    <h4 class="modal-title">Change Topology</h4>
-                </div>
-                <div class="modal-body">
-                    <p>The cluster is presently configured in
-                        {% if conf.topology == 'delta' %}<b>delta-syncrepl</b>
-                        {% elif conf.topology == 'mirror' %}<b>mirror</b>{% endif %} mode. What should it be reconfigured to?</p>
-                    <div class="btn-group btn-group-justified" role="group" aria-label="topologies">
-                        <a class="btn btn-default" href="{{ url_for('cluster.change_topology', target='delta')}}">Delta Syncrepl</a>
-                        <a class="btn btn-default" href="{{ url_for('cluster.change_topology', target='mirror')}}">Mirror Mode</a>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
-                </div>
-            </div><!-- /.modal-content -->
-        </div><!-- /.modal-dialog -->
-    </div><!-- /.modal -->
-
     <!-- Alert Modal before a server is removed from the cluster -->
     <div id="remove_alert_modal" class="modal fade" tabindex="-1" role="dialog">
         <div class="modal-dialog" role="document">

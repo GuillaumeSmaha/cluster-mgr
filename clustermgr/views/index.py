@@ -2,6 +2,7 @@ import os
 
 from flask import Blueprint, render_template, redirect, url_for, flash, \
         request, jsonify
+from flask import current_app as app
 from werkzeug.utils import secure_filename
 
 from clustermgr.extensions import db
@@ -32,11 +33,6 @@ def home():
 
     return render_template('dashboard.html', data=data, servers=servers,
                            conf=config)
-
-
-@index.route('/error/<error>/')
-def error_page(error=None):
-    return render_template('error.html', error=error)
 
 
 @index.route('/configuration/', methods=['GET', 'POST'])

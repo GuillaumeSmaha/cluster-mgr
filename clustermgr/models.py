@@ -72,9 +72,6 @@ class AppConfiguration(db.Model):
     # folder with the certificates for the app to use
     certificate_folder = db.Column(db.String(200))
 
-    # the topology of the cluster
-    topology = db.Column(db.String(30))
-
     # the result of the last replication test
     last_test = db.Column(db.Boolean)
 

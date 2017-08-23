@@ -20,20 +20,19 @@ from clustermgr.tasks.all import setup_server, initialize_provider, replicate, \
 cluster = Blueprint('cluster', __name__, template_folder='templates')
 
 
-@cluster.route('/cluster/<topology>/')
-def setup_cluster(topology):
+@cluster.route('/')
+def setup_cluster():
     config = AppConfiguration.query.first()
     if not config:
         config = AppConfiguration()
-    config.topology = topology
     db.session.add(config)
     db.session.commit()
 
     if not config.replication_dn or not config.replication_pw:
         flash("Replication Manager DN and Password needs to be set before "
               "cluster can be created. Kindly configure now.", "warning")
-        return redirect(url_for('app_configuration',
-                        next=url_for('setup_cluster', topology=topology)))
+        return redirect(
+            url_for('app_configuration', next=url_for('setup_cluster')))
 
     return redirect(url_for('new_server', stype='provider'))
 
@@ -41,20 +40,8 @@ def setup_cluster(topology):
 @cluster.route('/server/new/<stype>/', methods=['GET', 'POST'])
 def new_server(stype):
     providers = LDAPServer.query.filter_by(role="provider").all()
-    config = AppConfiguration.query.first()
     if stype == 'provider':
         form = NewProviderForm()
-        if len(providers) == 1 and config.topology == 'delta':
-            flash("Only 1 provider can be configured in the \"delta-syncrepl\""
-                  " topology. Kindly change the topology and try again!",
-                  "danger")
-            return redirect(url_for('home'))
-        elif len(providers) == 2 and config.topology == 'mirror':
-            flash("Only 2 providers can be configured in the \"mirror mode\""
-                  " topology. Kindly change the topology and try again!",
-                  "danger")
-            return redirect(url_for('home'))
-
     elif stype == 'consumer':
         form = NewConsumerForm()
         form.provider.choices = [(p.id, p.hostname) for p in providers]
@@ -153,12 +140,7 @@ def setup_ldap_server(server_id, step):
         conf = generate_conf(s)
         return render_template("conf_editor.html", server=s, config=conf)
     elif step == 3:
-        appconf = AppConfiguration.query.first()
-        provider_count = LDAPServer.query.filter_by(role='provider').count()
-        if appconf.topology == 'mirror' and provider_count == 1:
-            nextpage = 'provider'
-        else:
-            nextpage = 'dashboard'
+        nextpage = 'dashboard'
         conffile = os.path.join(app.config['SLAPDCONF_DIR'],
                                 "{0}_slapd.conf".format(server_id))
         task = setup_server.delay(server_id, conffile)
@@ -222,45 +204,3 @@ def test_replication():
     task = replicate.delay()
     head = "Replication Test"
     return render_template('logger.html', heading=head, task=task)
-
-
-@cluster.route('/change_topology/<target>/', methods=['GET', 'POST'])
-def change_topology(target):
-    conf = AppConfiguration.query.first()
-    if request.method == 'POST':
-        if not request.form.get('server'):
-            servers = LDAPServer.query.filter_by(role="provider").all()
-            flash("No server was selected for re-configuration. Kindly select"
-                  " a server and try again.", "warning")
-            return render_template('choose_provider_form.html', servers=servers)
-
-        server_id = int(request.form['server'])
-        # remove all the other providers
-        providers = LDAPServer.query.filter_by(role="provider").all()
-        for provider in providers:
-            if provider.id != server_id:
-                db.session.delete(provider)
-                db.session.commit()
-        # reconfigure the provider
-        task = remove_mirroring.delay(server_id)
-        head = "Reconfiguring Cluster to %s topology" % target
-        return render_template('logger.html', heading=head, task=task)
-
-    if target == 'mirror' and conf.topology == 'delta':
-        conf = AppConfiguration.query.first()
-        conf.topology = target
-        db.session.commit()
-        flash("Reconfiguring cluster: Add another provider to setup mirror mode.",
-              "info")
-        return redirect(url_for('setup_cluster', topology=target))
-    elif target == 'delta' and conf.topology == 'mirror':
-        servers = LDAPServer.query.filter_by(role="provider").all()
-        return render_template('choose_provider_form.html', servers=servers)
-
-    if target == conf.topology:
-        flash("Nothing to do. The requested topology is same as the one "
-              "currently in use.", "warning")
-        return redirect(url_for('home'))
-
-    # default redirect to home
-    return redirect(url_for('home'))
