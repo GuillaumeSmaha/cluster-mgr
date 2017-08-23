@@ -133,8 +133,10 @@ binaryAttributes=objectGUID
 11. scp the data to the servers with no databases
 12. On the other servers
 ```
+# service solserver force-reload
 # chown -R ldap.ldap /opt/gluu/data
-# slapad -w -s -l /path/to/alldata.ldif
+# service solserver force-reoad
+# slapadd -w -s -l /path/to/alldata.ldif
 ```
 13. Install ntp outside of the Gluu chroot and set ntp to update by the minute (necessary for delta-sync log synchronization)
 ```
