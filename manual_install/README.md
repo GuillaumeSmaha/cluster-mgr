@@ -81,7 +81,7 @@ HOST_LIST="ldaps://0.0.0.0:1636/ ldaps:/// ldap:///"
 ```
 # mkdir /opt/gluu/data/accesslog_db
 ```
-9. Copy the contents of /etc/gluu/conf/ox-ldap.properties from Server 1 and replace on every other server. 
+9. Copy the contents of /etc/gluu/conf/ from Server 1 and replace on every other server. The ox-ldap.properties file is the only one that needs to change. 
     - the servers: portion must have the other servers FQDN's, excluding the server with which the .properties file resides.
     - For example:
 ### Server 1
