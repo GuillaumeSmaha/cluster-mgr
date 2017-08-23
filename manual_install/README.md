@@ -10,7 +10,7 @@ Steps for manual integration of delt-syncrepl with Gluu
     - Insert a syncrepl block for each server you have (n-1). Replication ID (rid) MUST match the provider across the servers. 
     - An example for 2 servers:
   
-  ### server 1
+###### server 1
  ```
   syncrepl
   rid=002
@@ -33,7 +33,7 @@ Steps for manual integration of delt-syncrepl with Gluu
   sizeLimit=unlimited
   timelimit=unlimited
 ```
-    ### server 2
+###### server 2
   ```
   syncrepl
   rid=001
@@ -85,7 +85,7 @@ This is necessary because each Gluu instance creates unique inum's under o=gluu,
 9. Copy the contents of /etc/gluu/conf/ from Server 1 and replace on every other server. The ox-ldap.properties file is the only one that needs to change. 
     - the servers: portion must have the other servers FQDN's, excluding the server with which the .properties file resides.
     - For example:
-    ### Server 1
+###### Server 1
 ```
 bindDN: cn=directory manager,o=gluu
 bindPassword: GOvhsv/gPvg=
@@ -106,7 +106,7 @@ pythonModulesDir=/opt/gluu/python/libs
 
 binaryAttributes=objectGUID
 ```
-    ### Server 2
+###### Server 2
 ```
 bindDN: cn=directory manager,o=gluu
 bindPassword: GOvhsv/gPvg=
