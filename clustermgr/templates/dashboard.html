@@ -38,7 +38,7 @@
                       </div>
                   </div>
               </div>
-              <a href="{{ url_for('setup_cluster', topology=conf.topology) }}" class="text-info">
+              <a href="{{ url_for('cluster.setup_cluster', topology=conf.topology) }}" class="text-info">
                   <div class="panel-body">
                       <span class="pull-left">Add Provider</span>
                       <span class="pull-right"><i class="glyphicon glyphicon-circle-arrow-right"></i></span>
@@ -60,7 +60,7 @@
                       </div>
                   </div>
               </div>
-              <a href="{{ url_for('new_server', stype='consumer') }}" class="text-warning">
+              <a href="{{ url_for('cluster.new_server', stype='consumer') }}" class="text-warning">
                   <div class="panel-body">
                       <span class="pull-left">Add Consumer</span>
                       <span class="pull-right"><i class="glyphicon glyphicon-circle-arrow-right"></i></span>
@@ -86,7 +86,7 @@
                       </div>
                   </div>
               </div>
-              <a href="{{ url_for('test_replication') }}" class="{% if conf.last_test %}text-success{% else %}text-danger{% endif %}">
+              <a href="{{ url_for('cluster.test_replication') }}" class="{% if conf.last_test %}text-success{% else %}text-danger{% endif %}">
                   <div class="panel-body">
                       <span class="pull-left">Run Test</span>
                       <span class="pull-right"><i class="glyphicon glyphicon-circle-arrow-right"></i></span>
@@ -133,8 +133,8 @@
                     </ul>
                 </div>
             {% elif server.role == "provider" and server.initialized %}
-                <a class="btn btn-success btn-xs" href="{{ url_for('initialize', server_id=server.id) }}">Reinitialize</a>
-                <a class="btn btn-primary btn-xs" href="{{ url_for('new_server', stype='consumer') }}">Add Consumer</a>
+                <a class="btn btn-success btn-xs" href="{{ url_for('cluster.initialize', server_id=server.id) }}">Reinitialize</a>
+                <a class="btn btn-primary btn-xs" href="{{ url_for('cluster.new_server', stype='consumer') }}">Add Consumer</a>
             {% endif %}
             <a class="btn btn-danger btn-xs" href="#" data-toggle="modal" data-target="#remove_alert_modal" data-serverid="{{server.id}}"
                 data-hostname="{{ server.hostname }}">Remove</a>
@@ -159,8 +159,8 @@
                         {% if conf.topology == 'delta' %}<b>delta-syncrepl</b>
                         {% elif conf.topology == 'mirror' %}<b>mirror</b>{% endif %} mode. What should it be reconfigured to?</p>
                     <div class="btn-group btn-group-justified" role="group" aria-label="topologies">
-                        <a class="btn btn-default" href="{{ url_for('change_topology', target='delta')}}">Delta Syncrepl</a>
-                        <a class="btn btn-default" href="{{ url_for('change_topology', target='mirror')}}">Mirror Mode</a>
+                        <a class="btn btn-default" href="{{ url_for('cluster.change_topology', target='delta')}}">Delta Syncrepl</a>
+                        <a class="btn btn-default" href="{{ url_for('cluster.change_topology', target='mirror')}}">Mirror Mode</a>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -198,7 +198,7 @@
         var button = $(event.relatedTarget);
         var server_id = button.data('serverid');
         var hostname = button.data('hostname');
-        var remove_server_url = '{{ url_for("remove_server", server_id=9999) }}';
+        var remove_server_url = '{{ url_for("cluster.remove_server", server_id=9999) }}';
         remove_server_url = remove_server_url.replace('9999', server_id);
         var modal = $(this)
         modal.find('.modal-title').text('Remove ' + hostname);

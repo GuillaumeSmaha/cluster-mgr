@@ -14,7 +14,7 @@ from clustermgr.core.msgcon import get_audit_logs, get_server_logs, \
 logserver = Blueprint('logserver', __name__, template_folder='templates')
 
 
-@logserver.route("/logging_server", methods=["GET", "POST"])
+@logserver.route("/", methods=["GET", "POST"])
 def logging_server():
     log = LoggingServer.query.first()
     form = LoggingServerForm()
@@ -32,7 +32,7 @@ def logging_server():
     return render_template("logging_server.html", log=log, form=form)
 
 
-@logserver.route("/logging_server/server-log")
+@logserver.route("/server-log")
 def oxauth_server_log():
     err = ""
     logs = None
@@ -54,7 +54,7 @@ def oxauth_server_log():
     return render_template("oxauth_server_log.html", logs=logs, err=err)
 
 
-@logserver.route("/logging_server/audit-log")
+@logserver.route("/audit-log")
 def oxauth_audit_log():
     err = ""
     logs = None
@@ -76,7 +76,7 @@ def oxauth_audit_log():
     return render_template("oxauth_audit_log.html", logs=logs, err=err)
 
 
-@logserver.route("/logging_server/audit_log/<int:id>")
+@logserver.route("/audit_log/<int:id>")
 def audit_log_item(id):
     err = ""
     log = None
@@ -98,7 +98,7 @@ def audit_log_item(id):
     return render_template("view_audit_log.html", log=log, err=err)
 
 
-@logserver.route("/logging_server/server_log/<int:id>")
+@logserver.route("/server_log/<int:id>")
 def server_log_item(id):
     err = ""
     log = None
