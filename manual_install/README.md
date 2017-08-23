@@ -14,47 +14,47 @@ Steps for manual integration of delt-syncrepl with Gluu
  ```
   syncrepl
   rid=002
-      provider=ldaps://{Insert server FQDN here i.e. c2.gluu.org}
-      tls_reqcert=never
-      bindmethod=simple
-      
-      binddn="{Insert main_db rootdn credentials i.e. "cn=directory manager,o=gluu"}
-      
-      credentials={Your hash password for your bindDN}
-      
-      type=refreshAndPersist
-      searchbase="o=gluu"
-      filter="(objectclass=*)"
-      scope=sub
-      retry="5 10 60 +"
-      logbase="cn=accesslog"
-      logfilter="(&(objectClass=auditWriteObject)(reqResult=0))"
-      syncdata=accesslog
-      sizeLimit=unlimited
-      timelimit=unlimited
+  provider=ldaps://{Insert server FQDN here i.e. c2.gluu.org}
+  tls_reqcert=never
+  bindmethod=simple
+
+  binddn="{Insert main_db rootdn credentials i.e. "cn=directory manager,o=gluu"}
+
+  credentials={Your hash password for your bindDN}
+
+  type=refreshAndPersist
+  searchbase="o=gluu"
+  filter="(objectclass=*)"
+  scope=sub
+  retry="5 10 60 +"
+  logbase="cn=accesslog"
+  logfilter="(&(objectClass=auditWriteObject)(reqResult=0))"
+  syncdata=accesslog
+  sizeLimit=unlimited
+  timelimit=unlimited
 ```
-### server 2
+    ### server 2
   ```
   syncrepl
   rid=001
-      provider=ldaps://{Insert server FQDN here i.e. c1.gluu.org} 
-      tls_reqcert=never
-      bindmethod=simple
-      
-      binddn="{Insert main_db rootdn credentials i.e. "cn=directory manager,o=gluu"}
-      
-      credentials={Your hash password for your bindDN}
-      
-      type=refreshAndPersist
-      searchbase="o=gluu"
-      filter="(objectclass=*)"
-      scope=sub
-      retry="5 10 60 +"
-      logbase="cn=accesslog"
-      logfilter="(&(objectClass=auditWriteObject)(reqResult=0))"
-      syncdata=accesslog
-      sizeLimit=unlimited
-      timelimit=unlimited
+  provider=ldaps://{Insert server FQDN here i.e. c1.gluu.org} 
+  tls_reqcert=never
+  bindmethod=simple
+
+  binddn="{Insert main_db rootdn credentials i.e. "cn=directory manager,o=gluu"}
+
+  credentials={Your hash password for your bindDN}
+
+  type=refreshAndPersist
+  searchbase="o=gluu"
+  filter="(objectclass=*)"
+  scope=sub
+  retry="5 10 60 +"
+  logbase="cn=accesslog"
+  logfilter="(&(objectClass=auditWriteObject)(reqResult=0))"
+  syncdata=accesslog
+  sizeLimit=unlimited
+  timelimit=unlimited
 ```
 4. Replace all slapd.conf's with your individually modified slapd.conf's.
 
@@ -85,7 +85,7 @@ This is necessary because each Gluu instance creates unique inum's under o=gluu,
 9. Copy the contents of /etc/gluu/conf/ from Server 1 and replace on every other server. The ox-ldap.properties file is the only one that needs to change. 
     - the servers: portion must have the other servers FQDN's, excluding the server with which the .properties file resides.
     - For example:
-### Server 1
+    ### Server 1
 ```
 bindDN: cn=directory manager,o=gluu
 bindPassword: GOvhsv/gPvg=
@@ -106,7 +106,7 @@ pythonModulesDir=/opt/gluu/python/libs
 
 binaryAttributes=objectGUID
 ```
-### Server 2
+    ### Server 2
 ```
 bindDN: cn=directory manager,o=gluu
 bindPassword: GOvhsv/gPvg=
