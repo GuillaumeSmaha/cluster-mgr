@@ -2,7 +2,7 @@ Steps for manual integration of delt-syncrepl with Gluu
 =======================
 
 1. [Install Gluu](https://gluu.org/docs/ce/3.0.2/installation-guide/install/) on all servers.
-2. Log in to Gluu and run ./setup.py
+2. Log in to Gluu (Most actions take place inside the Gluu chroot) and run ./setup.py
 3. Modify the slapd_example.conf provided for each server.
 
     - Make sure to change the serverid on the top of the file, starting with 1. All servers must have a different server id.
@@ -14,7 +14,7 @@ Steps for manual integration of delt-syncrepl with Gluu
  ```
   syncrepl
   rid=002
-      provider=ldap://{Insert server FQDN here i.e. c2.gluu.org}
+      provider=ldaps://{Insert server FQDN here i.e. c2.gluu.org}
       tls_reqcert=never
       bindmethod=simple
       
@@ -37,7 +37,7 @@ Steps for manual integration of delt-syncrepl with Gluu
   ```
   syncrepl
   rid=001
-      provider=ldap://{Insert server FQDN here i.e. c1.gluu.org} 
+      provider=ldaps://{Insert server FQDN here i.e. c1.gluu.org} 
       tls_reqcert=never
       bindmethod=simple
       
@@ -62,12 +62,11 @@ Steps for manual integration of delt-syncrepl with Gluu
 ```
 # vi /opt/symas/etc/openldap/ldap.conf
 TLS_CACERT /path/to/cert.pem
-TLS_REQCERT never
 ```
 6. Modify /opt/symas/etc/openldap/symas-openldap.conf
 ```
 ...
-HOST_LIST="ldaps://0.0.0.0:1636/ ldaps:/// ldap:///"
+HOST_LIST="ldaps://0.0.0.0:1636/ ldaps:///"
 ...
 ```
 7. Now if you have a primary server with a Gluu database already (if not, just pick one to be the base):
