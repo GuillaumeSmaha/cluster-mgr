@@ -11,13 +11,15 @@ from fabric.api import run, execute, cd, put, env, get
 from fabric.context_managers import settings
 from fabric.contrib.files import exists
 from ldap.modlist import modifyModlist
+from flask import current_app as app
 
-from .application import celery, db, wlogger, app
-from .models import LDAPServer, AppConfiguration, KeyRotation, OxauthServer, OxelevenKeyID
-from .ldaplib import ldap_conn, search_from_ldap
-from .utils import decrypt_text, random_chars
-from .ox11 import generate_key, delete_key
-from .keygen import generate_jks
+from clustermgr.extensions import celery, db, wlogger
+from clustermgr.models import LDAPServer, AppConfiguration, KeyRotation, \
+        OxauthServer, OxelevenKeyID
+from clustermgr.core.ldaplib import ldap_conn, search_from_ldap
+from clustermgr.core.utils import decrypt_text, random_chars
+from clustermgr.core.ox11 import generate_key, delete_key
+from clustermgr.core.keygen import generate_jks
 
 ldap.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_NEVER)
 

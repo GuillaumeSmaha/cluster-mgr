@@ -1,7 +1,7 @@
 from datetime import datetime
 from datetime import timedelta
 
-from .application import db
+from clustermgr.extensions import db
 
 from sqlalchemy.orm import relationship, backref
 
