@@ -130,7 +130,7 @@ binaryAttributes=objectGUID
 ```
 # service solserver stop
 # /opt/symas/bin/slapcat -l alldata.ldif
-``
+```
 11. scp the data to the servers with no databases
 12. On the other servers
 ```
