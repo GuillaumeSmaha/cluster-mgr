@@ -76,7 +76,9 @@ HOST_LIST="ldaps://0.0.0.0:1636/ ldaps:///"
 # rm /opt/gluu/data/main_db/*.mdb
 # rm /opt/gluu/data/site_db/*.mdb
 ```
-8. Make an accesslog database directory:
+This is necessary because each Gluu instance creates unique inum's under o=gluu, so therefore servers won't match. We delete the brand new databases and replace with our own existing database later.
+
+8. Make an accesslog database directory for delta-syncrepl:
 ```
 # mkdir /opt/gluu/data/accesslog_db
 ```
@@ -130,12 +132,12 @@ binaryAttributes=objectGUID
 # service solserver stop
 # /opt/symas/bin/slapcat -l alldata.ldif
 ```
-11. scp the data to the servers with no databases
+This pulls our database into a single .ldif file which will import into our new fresh and empty Gluu servers.
+11. scp the data to the wiped servers.
 12. On the other servers
 ```
-# service solserver force-reload
+# service solserver stop
 # chown -R ldap.ldap /opt/gluu/data
-# service solserver force-reoad
 # slapadd -w -s -l /path/to/alldata.ldif
 ```
 13. Install ntp outside of the Gluu chroot and set ntp to update by the minute (necessary for delta-sync log synchronization)
@@ -151,3 +153,18 @@ binaryAttributes=objectGUID
 ```
 # service solserver force-reload
 ```
+15. delta-sync multimaster replication should be up and running. Check the logs for confirmation. You should see something like that following:
+```
+# tail -f /var/log/openldap/ldap.log | grep sync
+
+Aug 23 22:40:29 dc4 slapd[79544]: do_syncrep2: rid=001 cookie=rid=001,sid=001,csn=20170823224029.216104Z#000000#001#000000
+Aug 23 22:40:29 dc4 slapd[79544]: syncprov_matchops: skipping original sid 001
+Aug 23 22:40:29 dc4 slapd[79544]: syncrepl_message_to_op: rid=001 be_modify inum=@!7A50.0E96.90FB.EA93!0002!F7B4.A83E,ou=appliances,o=gluu (0)
+Aug 23 22:40:29 dc4 slapd[79544]: syncprov_sendresp: to=003, cookie=rid=002,sid=002,csn=20170823224029.216104Z#000000#001#000000
+Aug 23 22:40:36 dc4 slapd[79544]: do_syncrep2: rid=001 cookie=rid=001,sid=001,csn=20170823224036.310829Z#000000#001#000000
+Aug 23 22:40:36 dc4 slapd[79544]: syncprov_matchops: skipping original sid 001
+Aug 23 22:40:36 dc4 slapd[79544]: syncrepl_message_to_op: rid=001 be_modify inum=@!7A50.0E96.90FB.EA93!0002!F7B4.A83E,ou=appliances,o=gluu (0)
+Aug 23 22:40:36 dc4 slapd[79544]: syncprov_sendresp: to=003, cookie=rid=002,sid=002,csn=20170823224036.310829Z#000000#001#000000
+```
+
+
