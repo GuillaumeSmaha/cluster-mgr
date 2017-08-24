@@ -1,0 +1,18 @@
+syncrepl
+    rid={#PROVIDER_ID#}
+    provider=ldaps://{#PROVIDER_ADDR#}
+    tls_reqcert=never
+    bindmethod=simple
+    binddn="cn=directory manager,o=gluu"
+    credentials={#PROVIDER_PWD#}
+    type=refreshAndPersist
+    searchbase="o=gluu"
+    filter="(objectclass=*)"
+    scope=sub
+    schemachecking=on
+    retry="5 10 60 +"
+    logbase="cn=accesslog"
+    logfilter="(&(objectClass=auditWriteObject)(reqResult=0))"
+    syncdata=accesslog
+    sizeLimit=unlimited
+    timelimit=unlimited
