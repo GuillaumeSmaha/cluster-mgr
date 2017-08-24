@@ -1,12 +1,12 @@
 Steps for manual integration of delt-syncrepl with Gluu
 =======================
 
-#### 1. [Install Gluu](https://gluu.org/docs/ce/3.0.2/installation-guide/install/) on all servers. Make sure you remember or have access to the LDAP password you set here.
-#### 2. After install and setup, log in to the Gluu chroot
+### 1. [Install Gluu](https://gluu.org/docs/ce/3.0.2/installation-guide/install/) on all servers. Make sure you remember or have access to the LDAP password you set here.
+### 2. After install and setup, log in to the Gluu chroot
 ```
 service gluu-server-3.0.2 login
 ```
-#### 3. Provided are a script, configuration and template files to automatically create slapd.conf files for each server. We will download it from Github and then modify the configuration files for each server.
+### 3. Provided are a script, configuration and template files to automatically create slapd.conf files for each server. We will download it from Github and then modify the configuration files for each server.
 
 Download and using git inside the Gluu chroot:
 ```
@@ -16,7 +16,7 @@ OR each file individually:
 ```
 # cd /tmp/ && mkdir /tmp/slap_script/ && mkdir /tmp/slap_script/ldap_templates && cd /tmp/slap_script/ && wget https://raw.githubusercontent.com/GluuFederation/cluster-mgr/master/manual_install/slapd_conf_script/create_slapd_conf.py &&  wget https://raw.githubusercontent.com/GluuFederation/cluster-mgr/master/manual_install/slapd_conf_script/syncrepl.cfg && cd ldap_templates && wget https://raw.githubusercontent.com/GluuFederation/cluster-mgr/master/manual_install/slapd_conf_script/ldap_templates/slapd.conf && wget https://raw.githubusercontent.com/GluuFederation/cluster-mgr/master/manual_install/slapd_conf_script/ldap_templates/syncrepl.temp && cd ..
 ```
-#### 4. We now have to modify the `syncrepl.cfg` file in our current directory */tmp/cluster-mgr/manual_install/slapd_conf_script*:
+### 4. We now have to modify the `syncrepl.cfg` file in our current directory */tmp/cluster-mgr/manual_install/slapd_conf_script*:
 ```
 # vi syncrepl.cfg
 ```
@@ -63,7 +63,7 @@ And manually move it to
 mv /opt/gluu-server-3.0.2/opt/symas/etc/openldap/slapd.conf
 ```
 
-#### 5. Next is to create and modify ldap.conf in the */opt/symas/etc/openldap/* directory:
+### 5. Next is to create and modify ldap.conf in the */opt/symas/etc/openldap/* directory:
 ```
 # vi /opt/symas/etc/openldap/ldap.conf
 ```Add this line```
@@ -84,18 +84,18 @@ HOST_LIST="ldaps://0.0.0.0:1636/ ldaps:///"
 ```
 This is necessary because each Gluu instance creates unique inum's under o=gluu, so the servers base directory techinically won't match. We delete the brand new databases and replace with our own existing database later. We will import database information shortly.
 
-#### 8. Make an accesslog database directory on every server for delta-syncrepl to write logs for entries to:
+### 8. Make an accesslog database directory on every server for delta-syncrepl to write logs for entries to:
 ```
 # mkdir /opt/gluu/data/accesslog_db
 # chown -R ldap.ldap /opt/gluu/data
 ```
-#### 9. Copy the contents of */etc/gluu/conf/* from Server 1 and replace on every other server. 
+### 9. Copy the contents of */etc/gluu/conf/* from Server 1 and replace on every other server. 
 ##### To server2:
 ```
 # ssh root@server2.com "rm -rf /opt/gluu-server-3.0.2/etc/gluu/conf/
 # scp -r /etc/gluu/conf/ root@serverX.com:/opt/gluu-server-3.0.2/etc/gluu/
 ```
-#### 10. On your primary database server
+### 10. On your primary database server
 ```
 # service solserver stop
 # /opt/symas/bin/slapcat -l alldata.ldif
@@ -109,7 +109,7 @@ This pulls our database into a single `.ldif` file which we will import into our
 ```
 for each server.
 
-#### 12. On the wiped servers:
+### 12. On the wiped servers:
 ```
 # service solserver stop
 # chown -R ldap.ldap /opt/gluu/data
@@ -118,7 +118,7 @@ for each server.
 ```
 We run `chown -R` the first time to give ldap access recursively to ever directory in /opt/gluu/data. `slapadd` then injects all of our information and creates the databases in their respective directories. We then `chown -R` to make sure ldap can access them when we restart solserver.
 
-13. Install ntp outside of the Gluu chroot and set ntp to update by the minute (necessary for delta-sync log synchronization). If time gets out of sync, the entries will conflict and their could be issues.
+### 13. Install ntp outside of the Gluu chroot and set ntp to update by the minute (necessary for delta-sync log synchronization). If time gets out of sync, the entries will conflict and their could be issues.
 
 ```
 GLUU.root@host:/ # logout
@@ -129,11 +129,11 @@ GLUU.root@host:/ # logout
 ```
 This synchronizes the time every minute.
 
-14. Force-reload solserver on every server
+### 14. Force-reload solserver on every server
 ```
 # service solserver force-reload
 ```
-15. delta-sync multimaster replication should be initializing and running. Check the logs for confirmation. It might take a moment for them to sync, but you should end up see something like the following:
+### 15. delta-sync multimaster replication should be initializing and running. Check the logs for confirmation. It might take a moment for them to sync, but you should end up see something like the following:
 ```
 # tail -f /var/log/openldap/ldap.log | grep sync
 
