@@ -68,7 +68,7 @@ mv /opt/gluu-server-3.0.2/opt/symas/etc/openldap/slapd.conf
 # vi /opt/symas/etc/openldap/ldap.conf
 ```Add this line```
 TLS_CACERT /etc/certs/openldap.pem
-``` ```
+``` 
 #### 6. Modify the HOST_LIST entry in */opt/symas/etc/openldap/symas-openldap.conf*
 ```
 ...
