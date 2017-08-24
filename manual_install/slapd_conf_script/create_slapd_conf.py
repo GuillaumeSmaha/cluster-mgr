@@ -1,8 +1,7 @@
-
 import ConfigParser, os
 
-cur_dir=os.path.dirname(os.path.realpath(__file__))
-
+cur_dir=os.path.dirname(os.path.abspath(__file__))
+print cur_dir
 
 config = ConfigParser.ConfigParser()
 config.readfp(open('syncrepl.cfg'))
@@ -39,6 +38,7 @@ for ldp in ldp_servers:
     repls=''
     rootpwd = get_slappass(ldp['ldap_password'])
 
+
     slapd_tmp = slapd_tmp.replace('{#ROOTPW#}', rootpwd)
     slapd_tmp = slapd_tmp.replace('{#SERVER_ID#}', str(ldp['id']))
 
@@ -57,5 +57,5 @@ for ldp in ldp_servers:
 
     slapd_tmp = slapd_tmp.replace('{#SYNCREPL#}', repls)
 
-    with open('/tmp/{}.conf'.format(ldp['fqn_hostname'].replace('.','_')),'w') as f:
+    with open(os.path.join(cur_dir + '/{}.conf'.format(ldp['fqn_hostname'].replace('.','_'))),'w') as f:
         f.write(slapd_tmp)
