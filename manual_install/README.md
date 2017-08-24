@@ -8,7 +8,7 @@ service gluu-server-3.0.2 login
 ```
 #### 3. Provided are a script, configuration and template files to automatically create slapd.conf files for each server. We will download it from Github and then modify the configuration files for each server.
 
-Downloading and using git inside the Gluu chroot:
+Download and using git inside the Gluu chroot:
 ```
 # apt-get update && apt-get install git && cd /tmp/ && git clone https://github.com/GluuFederation/cluster-mgr.git && cd /tmp/cluster-mgr/manual_install/slapd_conf_script/
 ```
