@@ -2,7 +2,7 @@ Steps for manual integration of delt-syncrepl with Gluu
 =======================
 #### (Only tested with Ubuntu 14 Trusty, but the process shouldn't be OS specific.)
 
-## We are currently working on a GUI and program to handle this process, but the requirement for delta-syncrepl with Gluu is high right now, so here is the procedure to manually integrate Gluu across 'n' amount of servers. The basic concept is to modify/replace the `/opt/symas/etc/openldap/slapd.conf`, `/opt/symas/etc/openldap/ldap.conf` and `/etc/gluu/conf/`. Other than that, we create an `Access Log` database for delta-syncrepl to utilize for intelligent replication. The way OpenLDAP creates databases is through the `slapd.conf` file and designating a directory for the database inside the configuration file.
+##### We are currently working on a GUI and program to handle this process, but the requirement for delta-syncrepl with Gluu is high right now, so here is the procedure to manually integrate Gluu across 'n' amount of servers. The basic concept is to modify/replace the `/opt/symas/etc/openldap/slapd.conf`, `/opt/symas/etc/openldap/ldap.conf` and `/etc/gluu/conf/`. Other than that, we create an `Access Log` database for delta-syncrepl to utilize for intelligent replication. The way OpenLDAP creates databases is through the `slapd.conf` file and designating a directory for the database inside the configuration file.
 
 ### 1. [Install Gluu](https://gluu.org/docs/ce/3.0.2/installation-guide/install/) on all servers. Make sure you remember or have access to the LDAP password you set here.
 ### 2. After install and setup, log in to the Gluu chroot
