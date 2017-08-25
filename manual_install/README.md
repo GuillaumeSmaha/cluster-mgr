@@ -1,10 +1,13 @@
 Steps for manual integration of delt-syncrepl with Gluu
 =======================
+#### (Only tested with Ubuntu 14 Trusty, but the process shouldn't be OS specific.)
+
+## We are currently working on a GUI and program to handle this process, but the requirement for delta-syncrepl with Gluu is high right now, so here is the procedure to manually integrate Gluu across 'n' amount of servers. The basic concept is to modify/replace the `/opt/symas/etc/openldap/slapd.conf`, `/opt/symas/etc/openldap/ldap.conf` and `/etc/gluu/conf/`. Other than that, we create an `Access Log` database for delta-syncrepl to utilize for intelligent replication. The way OpenLDAP creates databases is through the `slapd.conf` file and designating a directory for the database inside the configuration file.
 
 ### 1. [Install Gluu](https://gluu.org/docs/ce/3.0.2/installation-guide/install/) on all servers. Make sure you remember or have access to the LDAP password you set here.
 ### 2. After install and setup, log in to the Gluu chroot
 ```
-service gluu-server-3.0.2 login
+# service gluu-server-3.0.2 login
 ```
 ### 3. Provided are a script, configuration and template files to automatically create slapd.conf files for each server. We will download it from Github and then modify the configuration files for each server.
 
@@ -16,7 +19,7 @@ OR each file individually:
 ```
 # cd /tmp/ && mkdir /tmp/slap_script/ && mkdir /tmp/slap_script/ldap_templates && cd /tmp/slap_script/ && wget https://raw.githubusercontent.com/GluuFederation/cluster-mgr/master/manual_install/slapd_conf_script/create_slapd_conf.py &&  wget https://raw.githubusercontent.com/GluuFederation/cluster-mgr/master/manual_install/slapd_conf_script/syncrepl.cfg && cd ldap_templates && wget https://raw.githubusercontent.com/GluuFederation/cluster-mgr/master/manual_install/slapd_conf_script/ldap_templates/slapd.conf && wget https://raw.githubusercontent.com/GluuFederation/cluster-mgr/master/manual_install/slapd_conf_script/ldap_templates/syncrepl.temp && cd ..
 ```
-### 4. We now have to modify the `syncrepl.cfg` file in our current directory */tmp/cluster-mgr/manual_install/slapd_conf_script*:
+### 4. We now have to modify the `syncrepl.cfg` file in our current directory `/tmp/cluster-mgr/manual_install/slapd_conf_script`:
 ```
 # vi syncrepl.cfg
 ```
@@ -37,45 +40,50 @@ enable = Yes
 [server_3]
 ...
 ```
-Add as many servers as is required. Now run the python script `create_slapd_conf.py`:
+Add as many servers as is required. 
+
+If required, you can change the `/tmp/cluster-mgr/manual_install/slapd_conf_script/ldap_templates/slapd.conf` to fit your specific needs to include different schemas, indexes, etc. Avoid changing any of the `{#variables#}`.
+
+Now run the python script `create_slapd_conf.py`:
 ```
 # python /tmp/cluster-mgr/manual_install/slapd_conf_script/create_slapd_conf.py
 ```
-This will output multiple .conf files in your current directory matching your server FQDN
+This will output multiple `.conf` files in your current directory named to match your server FQDN:
 ```
+# ls
 ... server1_com.conf  server2_com.conf ...
 ```
-Now we need to move these `*.conf` files to their appropriate servers. Having root ssh access to these servers is ideal. For the first, simply:
+Now we need to move these `.conf` files to their appropriate servers. Having root ssh access to these servers is ideal. For the first, simply:
 ```
-mv server1_com.conf /opt/symas/etc/openldap/slapd.conf
+# mv /tmp/cluster-mgr/manual_install/slapd_conf_script/server1_com.conf /opt/symas/etc/openldap/slapd.conf
 ```
 To replace the file. The others must be copied to their respective server.
 ```
-scp server2_com.conf root@server2.com:/opt/gluu-server-3.0.2/opt/symas/etc/openldap/slapd.conf
-scp server3_com.conf root@server3.com:/opt/gluu-server-3.0.2/opt/symas/etc/openldap/slapd.conf
+# scp server2_com.conf root@server2.com:/opt/gluu-server-3.0.2/opt/symas/etc/openldap/slapd.conf
+# scp server3_com.conf root@server3.com:/opt/gluu-server-3.0.2/opt/symas/etc/openldap/slapd.conf
 ```
 Else you can scp it to 
 ```
-root@serverX.com:/home/*login*/slapd.conf
+# root@serverX.com:/home/*login*/slapd.conf
 ```
 And manually move it to 
 ```
-mv /opt/gluu-server-3.0.2/opt/symas/etc/openldap/slapd.conf
+# mv /opt/gluu-server-3.0.2/opt/symas/etc/openldap/slapd.conf
 ```
 
 ### 5. Next is to create and modify ldap.conf in the */opt/symas/etc/openldap/* directory:
 ```
 # vi /opt/symas/etc/openldap/ldap.conf
-```Add this line```
+Add this line
 TLS_CACERT /etc/certs/openldap.pem
 ``` 
-#### 6. Modify the HOST_LIST entry in */opt/symas/etc/openldap/symas-openldap.conf*
+### 6. Modify the HOST_LIST entry in */opt/symas/etc/openldap/symas-openldap.conf*
 ```
 ...
 HOST_LIST="ldaps://0.0.0.0:1636/ ldaps:///"
 ...
 ```
-#### 7. Now if you have a primary server with a Gluu database already (if not, just pick one to be the base):
+### 7. Now if you have a primary server with a Gluu database already (if not, just pick one to be the base):
 - On your new servers (**NOT YOUR 'PRIMARY' SERVER**)
 ```
 # service solserver stop
@@ -84,7 +92,7 @@ HOST_LIST="ldaps://0.0.0.0:1636/ ldaps:///"
 ```
 This is necessary because each Gluu instance creates unique inum's under o=gluu, so the servers base directory techinically won't match. We delete the brand new databases and replace with our own existing database later. We will import database information shortly.
 
-### 8. Make an accesslog database directory on every server for delta-syncrepl to write logs for entries to:
+### 8. Make an accesslog database directory on every server for delta-syncrepl to write logs for entries to change access rights to slapd.conf since it contains a cleartext password:
 ```
 # mkdir /opt/gluu/data/accesslog_db
 # chown -R ldap.ldap /opt/gluu/data
@@ -102,7 +110,7 @@ This is necessary because each Gluu instance creates unique inum's under o=gluu,
 ```
 This pulls our database into a single `.ldif` file which we will import into our new fresh and empty Gluu servers.
 
-#### 11. `scp` the data to the wiped servers.
+### 11. `scp` the data to the wiped servers.
 ##### To server 2:
 ```
 # scp alldata.ldif root@server2:/opt/gluu-server-3.0.2/opt/symas/etc/openldap/alldata.ldif
@@ -112,9 +120,9 @@ for each server.
 ### 12. On the wiped servers:
 ```
 # service solserver stop
-# chown -R ldap.ldap /opt/gluu/data
+# chown -R .ldap /opt/gluu/data
 # /opt/symas/bin/slapadd -w -s -l /opt/symas/etc/openldap/alldata.ldif
-# chown -R ldap.ldap /opt/gluu/data
+# chown -R .ldap /opt/gluu/data
 ```
 We run `chown -R` the first time to give ldap access recursively to ever directory in /opt/gluu/data. `slapadd` then injects all of our information and creates the databases in their respective directories. We then `chown -R` to make sure ldap can access them when we restart solserver.
 
@@ -147,4 +155,4 @@ Aug 23 22:40:36 dc4 slapd[79544]: syncrepl_message_to_op: rid=001 be_modify inum
 Aug 23 22:40:36 dc4 slapd[79544]: syncprov_sendresp: to=003, cookie=rid=002,sid=002,csn=20170823224036.310829Z#000000#001#000000
 ```
 
-
+## If you have any questions, please make a post on the community support.gluu.org website, and we will assist you.
