@@ -49,6 +49,11 @@
                     {{ sform.upload(class="btn btn-success") }}
                 </div>
             </div>
+            {% if sform.schema.errors %}
+                {% for e in sform.schema.errors %}
+                <p class="text-danger">{{ e }}</p>
+                {% endfor %}
+            {% endif %}
         </form>
     </div>
 </div>

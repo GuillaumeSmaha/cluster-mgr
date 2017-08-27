@@ -58,7 +58,7 @@ class AppConfigForm(FlaskForm):
 class SchemaForm(FlaskForm):
     schema = FileField(validators=[
         FileRequired(),
-        FileAllowed(['schema'], 'OpenLDAP schema files only!')
+        FileAllowed(['schema'], 'Upload only Openldap Schema files with .schema extension.')
     ])
     upload = SubmitField("Upload Schema")
 
@@ -66,7 +66,7 @@ class SchemaForm(FlaskForm):
 class LDIFForm(FlaskForm):
     ldif = FileField(validators=[
         FileRequired(),
-        FileAllowed(['ldif'], 'OpenLDAP slapcat exported ldif files only!')
+        FileAllowed(['ldif'], 'Upload OpenLDAP slapcat exported ldif files only!')
     ])
 
 
