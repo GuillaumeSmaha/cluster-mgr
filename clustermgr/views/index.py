@@ -4,8 +4,9 @@ from flask import Blueprint, render_template, redirect, url_for, flash, \
         request, jsonify
 from flask import current_app as app
 from werkzeug.utils import secure_filename
+from celery.result import AsyncResult
 
-from clustermgr.extensions import db
+from clustermgr.extensions import db, wlogger, celery
 from clustermgr.models import LDAPServer, AppConfiguration, KeyRotation, \
     OxauthServer
 from clustermgr.forms import AppConfigForm, KeyRotationForm, SchemaForm
@@ -167,3 +168,13 @@ def delete_oxauth_server(id):
         db.session.delete(server)
         db.session.commit()
     return jsonify({}), 204
+
+
+@index.route('/log/<task_id>')
+def get_log(task_id):
+    msgs = wlogger.get_messages(task_id)
+    result = AsyncResult(id=task_id, app=celery)
+    if result.state == 'SUCCESS' or result.state == 'FAILED':
+        wlogger.clean(task_id)
+    log = {'task_id': task_id, 'state': result.state, 'messages': msgs}
+    return jsonify(log)

@@ -6,15 +6,13 @@ import os
 from flask import Blueprint, render_template, url_for, flash, redirect, \
         request, jsonify
 from flask import current_app as app
-from celery.result import AsyncResult
 
 
-from clustermgr.extensions import db, wlogger, celery
+from clustermgr.extensions import db
 from clustermgr.models import AppConfiguration, LDAPServer
 from clustermgr.forms import NewConsumerForm, NewProviderForm, LDIFForm
 from clustermgr.core.utils import ldap_encode
-from clustermgr.tasks.all import setup_server, initialize_provider, replicate, \
-        remove_mirroring
+from clustermgr.tasks.all import setup_server, initialize_provider, replicate
 
 
 cluster = Blueprint('cluster', __name__, template_folder='templates')
@@ -31,10 +29,10 @@ def setup_cluster():
     if not config.replication_dn or not config.replication_pw:
         flash("Replication Manager DN and Password needs to be set before "
               "cluster can be created. Kindly configure now.", "warning")
-        return redirect(
-            url_for('app_configuration', next=url_for('setup_cluster')))
+        return redirect(url_for('index.app_configuration',
+                                next=url_for('cluster.setup_cluster')))
 
-    return redirect(url_for('new_server', stype='provider'))
+    return redirect(url_for('cluster.new_server', stype='provider'))
 
 
 @cluster.route('/server/new/<stype>/', methods=['GET', 'POST'])
@@ -70,8 +68,9 @@ def new_server(stype):
         except:
             flash("Failed to add new server {0}. Probably it is a duplicate."
                   "".format(form.hostname.data), "danger")
-            return redirect(url_for('home'))
-        return redirect(url_for('setup_ldap_server', server_id=s.id, step=2))
+            return redirect(url_for('index.home'))
+        return redirect(url_for('cluster.setup_ldap_server',
+                                server_id=s.id, step=2))
 
     if stype == 'provider':
         return render_template('new_provider.html', form=form)
@@ -120,7 +119,7 @@ def generate_conf(server):
 
 
 @cluster.route('/server/<int:server_id>/setup/<int:step>/',
-              methods=['GET', 'POST'])
+               methods=['GET', 'POST'])
 def setup_ldap_server(server_id, step):
     s = LDAPServer.query.get(server_id)
     if step == 1:
@@ -135,8 +134,8 @@ def setup_ldap_server(server_id, step):
                                     "{0}_slapd.conf".format(server_id))
             with open(filename, 'w') as f:
                 f.write(conf)
-            return redirect(url_for("setup_ldap_server", server_id=server_id,
-                            step=3))
+            return redirect(url_for("cluster.setup_ldap_server",
+                                    server_id=server_id, step=3))
         conf = generate_conf(s)
         return render_template("conf_editor.html", server=s, config=conf)
     elif step == 3:
@@ -167,7 +166,7 @@ def remove_server(server_id):
           "success")
     db.session.delete(s)
     db.session.commit()
-    return redirect(url_for('home'))
+    return redirect(url_for('index.home'))
 
 
 @cluster.route('/initialize/<int:server_id>/')
@@ -187,16 +186,6 @@ def initialize(server_id):
     head = "Initializing server"
     return render_template('logger.html', heading=head, server=server,
                            task=task)
-
-
-@cluster.route('/log/<task_id>')
-def get_log(task_id):
-    msgs = wlogger.get_messages(task_id)
-    result = AsyncResult(id=task_id, app=celery)
-    if result.state == 'SUCCESS' or result.state == 'FAILED':
-        wlogger.clean(task_id)
-    log = {'task_id': task_id, 'state': result.state, 'messages': msgs}
-    return jsonify(log)
 
 
 @cluster.route('/fulltest/run')

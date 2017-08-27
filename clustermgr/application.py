@@ -59,7 +59,7 @@ def create_app():
     from clustermgr.views.index import index
     from clustermgr.views.cluster import cluster
     from clustermgr.views.logserver import logserver
-    app.register_blueprint(index, url_prefix="/")
+    app.register_blueprint(index, url_prefix="")
     app.register_blueprint(cluster, url_prefix="/cluster")
     app.register_blueprint(logserver, url_prefix="/logging_server")
 
