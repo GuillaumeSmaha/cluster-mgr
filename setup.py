@@ -35,7 +35,7 @@ setup(
         "flask-migrate",
     ],
     entry_points={
-        "console_scripts": ["clustermgr=clusterapp:main"],
+        "console_scripts": ["clustermgr-cli=clusterapp:cli"],
     },
     scripts=['clusterapp.py'],
 )
