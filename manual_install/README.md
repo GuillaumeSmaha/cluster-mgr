@@ -74,8 +74,9 @@ And manually move it to
 ### 5. Next is to create and modify ldap.conf in the */opt/symas/etc/openldap/* directory:
 ```
 # vi /opt/symas/etc/openldap/ldap.conf
-Add this line
+Add these lines
 TLS_CACERT /etc/certs/openldap.pem
+TLS_REQCERT never
 ``` 
 ### 6. Modify the HOST_LIST entry in */opt/symas/etc/openldap/symas-openldap.conf*
 ```
@@ -119,9 +120,9 @@ for each server.
 ### 12. On the wiped servers:
 ```
 # service solserver stop
-# chown -R .ldap /opt/gluu/data
+# chown -R ldap.ldap /opt/gluu/data
 # /opt/symas/bin/slapadd -w -s -l /opt/symas/etc/openldap/alldata.ldif
-# chown -R .ldap /opt/gluu/data
+# chown -R ldap.ldap /opt/gluu/data
 ```
 We run `chown -R` the first time to give ldap access recursively to ever directory in /opt/gluu/data. `slapadd` then injects all of our information and creates the databases in their respective directories. We then `chown -R` to make sure ldap can access them when we restart solserver.
 
@@ -138,6 +139,7 @@ This synchronizes the time every minute.
 
 ### 14. Force-reload solserver on every server
 ```
+# service gluu-server-3.0.2 login
 # service solserver force-reload
 ```
 ### 15. delta-sync multimaster replication should be initializing and running. Check the logs for confirmation. It might take a moment for them to sync, but you should end up see something like the following:
