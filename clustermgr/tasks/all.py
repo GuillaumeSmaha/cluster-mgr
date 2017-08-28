@@ -402,14 +402,6 @@ def gen_slapd_gluu(taskid, server, conffile):
     run_command(taskid, 'service '+sloc+' start')
 
 
-def get_olcdb_entry(result):
-    for r in result:
-        if re.match('^olcDatabase', r[0]):
-            if 'olcSuffix' in r[1] and 'o=gluu' in r[1]['olcSuffix']:
-                return (r[0], r[1])
-    return ('', '')
-
-
 def copy_certificate(server, certname):
     certfile = os.path.join(app.config["CERTS_DIR"], certname+".crt")
     if server.gluu_server:
@@ -417,59 +409,6 @@ def copy_certificate(server, certname):
         put(certfile, "/opt/"+sloc+"/opt/symas/ssl/"+certname+".crt")
     else:
         put(certfile, "/opt/symas/ssl/"+certname+".crt")
-
-
-def mirror(taskid, s1, s2):
-    if s2.protocol == 'ldaps':
-        with settings(warn_only=True):
-            execute(copy_certificate, s1, s2.hostname,
-                    hosts=["root@{}".format(s1.hostname)])
-
-    appconf = AppConfiguration.query.first()
-    cnuser = 'cn=admin,cn=config'
-    # Prepare the conf for server1
-    vals = {'r_id': s2.id, 'phost': s2.hostname, 'pport': s2.port,
-            'replication_dn': appconf.replication_dn,
-            'replication_pw': appconf.replication_pw,
-            'pprotocol': s2.protocol,
-            }
-    if s2.protocol == 'ldaps':
-        vals['pcert'] = 'tls_cacert="/opt/symas/ssl/{0}.crt"'.format(s2.hostname)
-    else:
-        vals['pcert'] = ''
-    f = open(os.path.join(app.root_path, 'templates', 'slapd', 'mirror.conf'))
-    olcSyncrepl = f.read().format(**vals).strip()
-    f.close()
-    # Find the dn of the o=gluu database in cn=config
-    with ldap_conn(s1.hostname, s1.port, cnuser, s1.admin_pw, starttls(s1)) \
-            as con:
-        result = con.search_s("cn=config", ldap.SCOPE_SUBTREE,
-                              "(objectclass=olcMdbConfig)", [])
-        dn, dbconfig = get_olcdb_entry(result)
-        if not dbconfig:
-            wlogger.log(taskid, "Cannot find the Config for o=gluu database.",
-                        "error")
-            wlogger.log(taskid, result, 'debug')
-            return
-        if 'olcSyncrepl' in dbconfig:
-            modlist = modifyModlist(
-                    {'olcSyncrepl': dbconfig['olcSyncrepl']},
-                    {'olcSyncrepl': olcSyncrepl}
-                    )
-        else:
-            modlist = [(ldap.MOD_ADD, 'olcSyncrepl', olcSyncrepl)]
-
-        con.modify_s(dn, modlist)
-
-        if 'olcMirrorMode' in dbconfig:
-            modlist = modifyModlist(
-                    {'olcMirrorMode': dbconfig['olcMirrorMode']},
-                    {'olcMirrorMode': 'TRUE'}
-                    )
-        else:
-            modlist = [(ldap.MOD_ADD, 'olcMirrorMode', 'TRUE')]
-
-        con.modify_s(dn, modlist)
 
 
 @celery.task(bind=True)
@@ -504,76 +443,6 @@ def setup_server(self, server_id, conffile):
     for msg in msgs:
         setup_success = setup_success and msg['level'] != 'error'
     server.setup = setup_success
-    db.session.commit()
-
-    # MirrorMode
-    appconf = AppConfiguration.query.first()
-    if appconf.topology != 'mirror':
-        return
-
-    providers = LDAPServer.query.filter_by(role="provider").all()
-    if len(providers) < 2:
-        wlogger.log(tid, "The cluster is configured to work in Mirror Mode. "
-                    "Add another provider to setup Mirror Mode.")
-        return
-    elif len(providers) > 2:
-        wlogger.log(tid, "The cluster has more than 2 Providers. It should "
-                    "already be working in Mirror Mode. Check Dashboard.")
-        return
-
-    wlogger.log(tid, "Setting up MirrorMode between the two providers.")
-    s1, s2 = providers
-    s1.provider_id = s2.id
-    s2.provider_id = s1.id
-    db.session.commit()
-    try:
-        mirror(self.request.id, s1, s2)
-        wlogger.log(tid, "Mirroring {0} to {1}".format(s1.hostname,
-                    s2.hostname), "success")
-        mirror(self.request.id, s2, s1)
-        wlogger.log(tid, "Mirroring {0} to {1}".format(s2.hostname,
-                    s1.hostname), "success")
-    except:
-        wlogger.log(tid, "Mirroring encountered an exception", "fail")
-        v = sys.exc_info()[1]
-        wlogger.log(tid, str(v), "debug")
-
-
-@celery.task(bind=True)
-def remove_mirroring(self, server_id):
-    server_id = int(server_id)
-    taskid = self.request.id
-    s = LDAPServer.query.get(server_id)
-    cnuser = 'cn=admin,cn=config'
-
-    try:
-        with ldap_conn(s.hostname, s.port, cnuser, s.admin_pw, starttls(s)) \
-                as con:
-            result = con.search_s("cn=config", ldap.SCOPE_SUBTREE,
-                                  "(objectclass=olcMdbConfig)", [])
-            dn, dbconfig = get_olcdb_entry(result)
-            if not dbconfig:
-                wlogger.log(taskid, "Connot find the Config for o=gluu database.",
-                            "error")
-                wlogger.log(taskid, result, 'debug')
-                return
-            modlist = []
-            if 'olcSyncrepl' in dbconfig:
-                modlist = [(ldap.MOD_DELETE, 'olcSyncrepl', None)]
-            if 'olcMirrorMode' in dbconfig:
-                modlist = [(ldap.MOD_DELETE, 'olcMirrorMode', None)]
-
-            con.modify_s(dn, modlist)
-            wlogger.log(taskid, "Removed Mirror-mode configuration. Now the"
-                        " server will work as provider for delta-syncrepl",
-                        "success")
-    except Exception as e:
-        wlogger.log(taskid, "Failed to remove mirror configuration from %s."
-                    " Encountered error %s" % (s.hostname, e), "error")
-        return False
-
-    conf = AppConfiguration.query.first()
-    conf.topology = 'delta'
     db.session.commit()
 
 
