@@ -12,9 +12,9 @@
 
 <button id="retry" class="btn btn-block btn-danger" style="display: none;">Retry</button>
 {% if nextpage == 'provider' %}
-    <a id="home" class="btn btn-block btn-success" style="display: none;" href="{{ url_for('new_server', stype='provider') }}">Add Mirror</a>
+    <a id="home" class="btn btn-block btn-success" style="display: none;" href="{{ url_for('cluster.new_server', stype='provider') }}">Add Mirror</a>
 {% else %}
-    <a id="home" class="btn btn-block btn-success" style="display: none;" href="{{ url_for('home') }}">Go to Dashboard</a>
+    <a id="home" class="btn btn-block btn-success" style="display: none;" href="{{ url_for('index.home') }}">Go to Dashboard</a>
 {% endif %}
 
 {% endblock content %}
@@ -53,7 +53,7 @@ function logitem(message, state){
 }
 
 function updateLog(){
-    $.get('{{ url_for("get_log", task_id=task.id) }}', function(data){
+    $.get('{{ url_for("index.get_log", task_id=task.id) }}', function(data){
         var logs = data.messages;
         var logged_msgs = $('.list-group-item').length;
         for(var i=logged_msgs; i<logs.length; i++){

@@ -1,6 +1,9 @@
-from clustermgr.application import app, db
+from clustermgr.application import create_app, init_celery
+from clustermgr.extensions import celery
+
+app = create_app()
+init_celery(app, celery)
+
 
 if __name__ == "__main__":
-    db.create_all()
-    app.run()
-#from clustermgr.application import app, db; db.create_all(); app.run(debug=False)
+    app.run(debug=True)
