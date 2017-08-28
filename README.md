@@ -64,14 +64,14 @@ Here's an example of how to use gunicorn to run Cluster Manager app.
 
 ```
 pip install gunicorn
-gunicorn -b 127.0.0.1:5000 clustermgr.application:app
+gunicorn -b 127.0.0.1:5000 clusterapp:app
 ```
 
 By default, the app runs in development mode. To run it in production mode, simply pass environment variable
 `APP_MODE=prod` to alter the mode.
 
 ```
-gunicorn -b 127.0.0.1:5000 -e APP_MODE=prod clustermgr.application:app
+gunicorn -b 127.0.0.1:5000 -e APP_MODE=prod clusterapp:app
 ```
 
 ### Running Background Task
@@ -79,11 +79,11 @@ gunicorn -b 127.0.0.1:5000 -e APP_MODE=prod clustermgr.application:app
 All delayed tasks are executed in background.
 
 ```
-APP_MODE=prod celery -A clustermgr.application.celery worker
+APP_MODE=prod celery -A clusterapp.celery worker
 ```
 
 To run periodic tasks:
 
 ```
-APP_MODE=prod celery -A clustermgr.application.celery beat
+APP_MODE=prod celery -A clusterapp.celery beat
 ```
