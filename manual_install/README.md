@@ -88,7 +88,6 @@ HOST_LIST="ldaps://0.0.0.0:1636/ ldaps:///"
 ```
 # service solserver stop
 # rm /opt/gluu/data/main_db/*.mdb
-# rm /opt/gluu/data/site_db/*.mdb
 ```
 This is necessary because each Gluu instance creates unique inum's under o=gluu, so the servers base directory techinically won't match. We delete the brand new databases and replace with our own existing database later. We will import database information shortly.
 
