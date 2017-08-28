@@ -107,7 +107,7 @@
                     </button>
                     <ul class="dropdown-menu">
                         <li><a href="{{ url_for('cluster.initialize', server_id=server.id)}}">Using Existing Data</a></li>
-                        <li><a href="{{ url_for('index.ldif_upload', server_id=server.id)}}">Using Exported LDIF</a></li>
+                        <li><a href="{{ url_for('cluster.ldif_upload', server_id=server.id)}}">Using Exported LDIF</a></li>
                     </ul>
                 </div>
             {% elif server.role == "provider" and server.initialized %}

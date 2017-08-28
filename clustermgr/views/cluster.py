@@ -4,7 +4,7 @@ the servers managed in the cluster-manager
 import os
 
 from flask import Blueprint, render_template, url_for, flash, redirect, \
-        request, jsonify
+        request
 from flask import current_app as app
 
 
@@ -35,7 +35,7 @@ def setup_cluster():
     return redirect(url_for('cluster.new_server', stype='provider'))
 
 
-@cluster.route('/server/new/<stype>/', methods=['GET', 'POST'])
+@cluster.route('/new/<stype>/', methods=['GET', 'POST'])
 def new_server(stype):
     providers = LDAPServer.query.filter_by(role="provider").all()
     if stype == 'provider':
@@ -155,7 +155,7 @@ def ldif_upload(server_id):
         f = form.ldif.data
         filename = "{0}_{1}".format(server_id, 'init.ldif')
         f.save(os.path.join(app.config['LDIF_DIR'], filename))
-        return redirect(url_for('initialize', server_id=server_id)+"?ldif=1")
+        return redirect(url_for('cluster.initialize', server_id=server_id)+"?ldif=1")
     return render_template('ldif_upload.html', form=form)
 
 
