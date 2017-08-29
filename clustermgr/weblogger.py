@@ -22,7 +22,7 @@ class WebLogger(object):
         By default WebLogger connects to whatever is the default in redis-py
         using redis.Redis() instance. This can be overridden by setting the
         following values in the Flask application config:
-            REDIS_HOST, REDIS_PORT, REDIS_LOG_DB
+        REDIS_HOST, REDIS_PORT, REDIS_LOG_DB
 
     Initialization:
         ```
