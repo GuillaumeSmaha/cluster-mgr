@@ -24,8 +24,8 @@ class WebLogger(object):
         following values in the Flask application config:
         REDIS_HOST, REDIS_PORT, REDIS_LOG_DB
 
-    Initialization:
-        ```
+    Initialization::
+
         from flask import Flask
         from .weblogger import WebLogger
 
@@ -35,9 +35,8 @@ class WebLogger(object):
         # or lazily
         wlogger = WebLogger()
         wlogger.init_app(app)
-        ```
 
-        Warning: In case of lazy initialization the redis instance is
+    Warning: In case of lazy initialization the redis instance is
         initialized with default values redis://localhost:6379/0. If a redis
         instance is running, then data can be stored in redis outside of the
         flask application context. The data will be logged with the keys using
