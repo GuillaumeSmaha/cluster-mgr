@@ -28,7 +28,7 @@ rm /opt/gluu/data/main_db/*.mdb
 - now make accesslog directories on every servers
 ```
 mkdir /opt/gluu/data/accesslog_db
-chown -r .ldap /opt/gluu/data/
+chown -R ldap. /opt/gluu/data/
 ```
 ### 6) Now is where we will set servers to associate with each other for MMR by editing the slapd.conf, ldap.conf and symas-openldap.conf files.
 
