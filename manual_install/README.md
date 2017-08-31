@@ -1,4 +1,8 @@
-### 1) Install Gluu on one server using a separate NGINX server FQDN as hostname. This is required since replicating a Gluu server to a different hostname breaks the functionality of OxTrust and OxAuth when using a hostname other than what is in the certificates. For example, if I used c1.gluu.info as my host and another install of gluu as c2.gluu.info, the process of accessing the site on c2.gluu.info, even with replication, will fail authentication. So if c1 failed, you couldn't access the Gluu web GUI anymore.
+Steps for manual integration of delt-syncrepl with Gluu
+=======================
+#### (Only tested with Ubuntu 14 Trusty, but the process shouldn't be OS specific.)
+
+### 1) [Install Gluu](https://gluu.org/docs/ce/3.0.2/installation-guide/install/) on one server using a separate NGINX server FQDN as hostname. This is required since replicating a Gluu server to a different hostname breaks the functionality of OxTrust and OxAuth when using a hostname other than what is in the certificates. For example, if I used c1.gluu.info as my host and another install of gluu as c2.gluu.info, the process of accessing the site on c2.gluu.info, even with replication, will fail authentication. So if c1 failed, you couldn't access the Gluu web GUI anymore.
 
 ### 2) Copy the installation properties to the new servers.
 
