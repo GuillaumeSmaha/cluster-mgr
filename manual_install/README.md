@@ -1,27 +1,37 @@
-Steps for manual integration of delt-syncrepl with Gluu
-=======================
-#### (Only tested with Ubuntu 14 Trusty, but the process shouldn't be OS specific.)
+### 1) Install Gluu on one server using a separate NGINX server FQDN as hostname. This is required since replicating a Gluu server to a different hostname breaks the functionality of OxTrust and OxAuth when using a hostname other than what is in the certificates. For example, if I used c1.gluu.info as my host and another install of gluu as c2.gluu.info, the process of accessing the site on c2.gluu.info, even with replication, will fail authentication. So if c1 failed, you couldn't access the Gluu web GUI anymore.
 
-##### We are currently working on a GUI and program to handle this process, but the requirement for delta-syncrepl with Gluu is high right now, so here is the procedure to manually integrate Gluu across 'n' amount of servers. The basic concept is to modify/replace the `/opt/symas/etc/openldap/slapd.conf`, `/opt/symas/etc/openldap/ldap.conf` and `/etc/gluu/conf/`. Other than that, we create an `Access Log` database for delta-syncrepl to utilize for intelligent replication. The way OpenLDAP creates databases is through the `slapd.conf` file and designating a directory for the database inside the configuration file.
+### 2) Copy the installation properties to the new servers.
 
-### 1. [Install Gluu](https://gluu.org/docs/ce/3.0.2/installation-guide/install/) on all servers. Make sure you remember or have access to the LDAP password you set here.
-### 2. After install and setup, log in to the Gluu chroot
 ```
-# service gluu-server-3.0.2 login
+scp /install/community-edition-setup/setup.properties.last root@server.com:/opt/gluu-server-3.0.2/install/community-edition-setup/
 ```
-### 3. Provided are a script, configuration and template files to automatically create slapd.conf files for each server. We will download it from Github and then modify the configuration files for each server.
 
-Download and using git inside the Gluu chroot:
+Edit the IP address in the file. It will begin with `ip=`. 
+
+Then rename to setup.properties
+
+`mv setup.properties.last setup.properties`
+
+### 4) Run `setup.py` and just hit `enter`. The configuration's are already loaded.
+
+### 5) There needs to be primary server to replicate from initially for delta-syncrepl to inject data from. After the initial injection, all servers will be exactly the same. So choose one server as a base and then on every other server:
+```
+rm /opt/gluu/data/main_db/*.mdb
+```
+now make accesslog directories on every servers
+```
+mkdir /opt/gluu/data/accesslog_db
+chown -r .ldap /opt/gluu/data/
+```
+### 6) Now is where we will set servers to associate with each other for MMR by editing the slapd.conf, ldap.conf and symas-openldap.conf files.
+
+Creating the slapd.conf file is relatively easy, but can be prone to errors if done manually. Attached is are a script and template files for creating multiple slapd.conf files for every server. Download git and the necessary files:
 ```
 # apt-get update && apt-get install git && cd /tmp/ && git clone https://github.com/GluuFederation/cluster-mgr.git && cd /tmp/cluster-mgr/manual_install/slapd_conf_script/
 ```
-OR each file individually:
+We need to configure the file for our own specific needs:
 ```
-# cd /tmp/ && mkdir /tmp/slap_script/ && mkdir /tmp/slap_script/ldap_templates && cd /tmp/slap_script/ && wget https://raw.githubusercontent.com/GluuFederation/cluster-mgr/master/manual_install/slapd_conf_script/create_slapd_conf.py &&  wget https://raw.githubusercontent.com/GluuFederation/cluster-mgr/master/manual_install/slapd_conf_script/syncrepl.cfg && cd ldap_templates && wget https://raw.githubusercontent.com/GluuFederation/cluster-mgr/master/manual_install/slapd_conf_script/ldap_templates/slapd.conf && wget https://raw.githubusercontent.com/GluuFederation/cluster-mgr/master/manual_install/slapd_conf_script/ldap_templates/syncrepl.temp && cd ..
-```
-### 4. We now have to modify the `syncrepl.cfg` file in our current directory `/tmp/cluster-mgr/manual_install/slapd_conf_script`:
-```
-# vi syncrepl.cfg
+vi syncrepl.cfg
 ```
 Here we want to change the `ip_address`, `fqn_hostname`, `ldap_password` to our specific server instances. For example:
 ```
@@ -40,7 +50,7 @@ enable = Yes
 [server_3]
 ...
 ```
-Add as many servers as is required. 
+Here the hostname should be the FQDN of the servers, not the NGINX server.
 
 If required, you can change the `/tmp/cluster-mgr/manual_install/slapd_conf_script/ldap_templates/slapd.conf` to fit your specific needs to include different schemas, indexes, etc. Avoid changing any of the `{#variables#}`.
 
@@ -53,96 +63,46 @@ This will output multiple `.conf` files in your current directory named to match
 # ls
 ... server1_com.conf  server2_com.conf ...
 ```
-Now we need to move these `.conf` files to their appropriate servers. Having root ssh access to these servers is ideal. For the first, simply:
+Move each .conf file to their respective server @:
+`/opt/gluu-server-3.0.2/opt/symas/etc/openldap/slapd.conf`
+Now create and modify the ldap.conf:
 ```
-# mv /tmp/cluster-mgr/manual_install/slapd_conf_script/server1_com.conf /opt/symas/etc/openldap/slapd.conf
+vi /opt/symas/etc/openldap/ldap.conf
 ```
-To replace the file. The others must be copied to their respective server.
-```
-# scp server2_com.conf root@server2.com:/opt/gluu-server-3.0.2/opt/symas/etc/openldap/slapd.conf
-# scp server3_com.conf root@server3.com:/opt/gluu-server-3.0.2/opt/symas/etc/openldap/slapd.conf
-```
-Else you can scp it to 
-```
-# root@serverX.com:/home/*login*/slapd.conf
-```
-And manually move it to 
-```
-# mv /opt/gluu-server-3.0.2/opt/symas/etc/openldap/slapd.conf
-```
-
-### 5. Next is to create and modify ldap.conf in the */opt/symas/etc/openldap/* directory:
-```
-# vi /opt/symas/etc/openldap/ldap.conf
 Add these lines
+```
 TLS_CACERT /etc/certs/openldap.pem
 TLS_REQCERT never
 ``` 
-### 6. Modify the HOST_LIST entry in */opt/symas/etc/openldap/symas-openldap.conf*
+Modify the HOST_LIST entry of symas-openldap.conf:
+```
+vi /opt/symas/etc/openldap/symas-openldap.conf
+```
+Edit like so:
 ```
 ...
 HOST_LIST="ldaps://0.0.0.0:1636/ ldaps:///"
 ...
 ```
-### 7. Now if you have a primary server with a Gluu database already (if not, just pick one to be the base):
-- On your new servers (**NOT YOUR 'PRIMARY' SERVER**)
-```
-# service solserver stop
-# rm /opt/gluu/data/main_db/*.mdb
-```
-This is necessary because each Gluu instance creates unique inum's under o=gluu, so the servers base directory techinically won't match. We delete the brand new databases and replace with our own existing database later. We will import database information shortly.
-
-### 8. Make an accesslog database directory on every server for delta-syncrepl to write logs for entries to change access rights to slapd.conf since it contains a cleartext password:
-```
-# mkdir /opt/gluu/data/accesslog_db
-# chown -R ldap.ldap /opt/gluu/data
-```
-### 9. Copy the contents of */etc/gluu/conf/* from Server 1 and replace on every other server. 
-##### To server2:
-```
-# ssh root@server2.com "rm -rf /opt/gluu-server-3.0.2/etc/gluu/conf/
-# scp -r /etc/gluu/conf/ root@serverX.com:/opt/gluu-server-3.0.2/etc/gluu/
-```
-### 10. On your primary database server
-```
-# service solserver stop
-# /opt/symas/bin/slapcat -l alldata.ldif
-```
-This pulls our database into a single `.ldif` file which we will import into our new fresh and empty Gluu servers.
-
-### 11. `scp` the data to the wiped servers.
-##### To server 2:
-```
-# scp alldata.ldif root@server2:/opt/gluu-server-3.0.2/opt/symas/etc/openldap/alldata.ldif
-```
-for each server.
-
-### 12. On the wiped servers:
-```
-# service solserver stop
-# chown -R ldap.ldap /opt/gluu/data
-# /opt/symas/bin/slapadd -w -s -l /opt/symas/etc/openldap/alldata.ldif
-# chown -R ldap.ldap /opt/gluu/data
-```
-We run `chown -R` the first time to give ldap access recursively to ever directory in /opt/gluu/data. `slapadd` then injects all of our information and creates the databases in their respective directories. We then `chown -R` to make sure ldap can access them when we restart solserver.
-
-### 13. Install ntp outside of the Gluu chroot and set ntp to update by the minute (necessary for delta-sync log synchronization). If time gets out of sync, the entries will conflict and their could be issues.
-
+### 7) It is important that our servers times are synchronized so we must install ntp outside of the Gluu chroot and set ntp to update by the minute (necessary for delta-sync log synchronization). If time gets out of sync, the entries will conflict and their could be issues.
 ```
 GLUU.root@host:/ # logout
 # apt install ntp
 # crontab -e
+```
 (select your preferred editor and add this to the bottom of the file)
+```
 * * * * * /usr/sbin/ntpdate -s time.nist.gov
 ```
 This synchronizes the time every minute.
 
-### 14. Force-reload solserver on every server
+### 8) Force-reload solserver on every server
 ```
 # service gluu-server-3.0.2 login
 # service solserver force-reload
 ```
-### 15. delta-sync multimaster replication should be initializing and running. Check the logs for confirmation. It might take a moment for them to sync, but you should end up see something like the following:
+### 8) Delta-sync multi-master replication should be initializing and running. Check the logs for confirmation. It might take a moment for them to sync, but you should end up see something like the following:
+
 ```
 # tail -f /var/log/openldap/ldap.log | grep sync
 
@@ -156,4 +116,57 @@ Aug 23 22:40:36 dc4 slapd[79544]: syncrepl_message_to_op: rid=001 be_modify inum
 Aug 23 22:40:36 dc4 slapd[79544]: syncprov_sendresp: to=003, cookie=rid=002,sid=002,csn=20170823224036.310829Z#000000#001#000000
 ```
 
-## If you have any questions, please make a post on the community support.gluu.org website, and we will assist you.
+### 9) Configuring your NGINX server is simple enough. 
+```
+apt-get install nginx -y
+cd /etc/nginx/
+>nginx.conf
+vi nginx.conf
+```
+and put this template in it's place. Make sure to change the `{serverX_ip_or_FQDN}` portion to your servers IP addresses or FQDN under the upstream section. Add as many servers as exister in your replication setup. The `server_name` needs to be your NGINX servers FQDN.
+```
+user www-data;
+worker_processes 4;
+pid /run/nginx.pid;
+
+events {
+        worker_connections 768;
+        # multi_accept on;
+}
+
+http {
+  upstream backend_id {
+    ip_hash;
+    server {server1_ip_or_FQDN}:443;
+    server {server2_ip_or_FQDN}:443;
+  }
+
+  server {
+    listen 80;
+    listen 443;
+    server_name nginxserver.com;
+
+    ssl on;
+    ssl_certificate         /etc/nginx/ssl/httpd.crt;
+    ssl_certificate_key     /etc/nginx/ssl/httpd.key;
+
+    location ~ ^(/)$ {
+      proxy_pass https://backend_id;
+    }
+    location /oxauth {
+        proxy_pass https://backend_id/oxauth;
+    }
+
+    location /idp {
+        proxy_pass https://backend_id/idp;
+    }
+    location /identity {
+        proxy_pass https://backend_id/identity;
+    }
+  }
+}
+
+```
+
+### If you have any questions, please make a post on the community support.gluu.org website, and we will assist you.
+
