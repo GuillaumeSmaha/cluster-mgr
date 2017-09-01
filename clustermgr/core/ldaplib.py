@@ -13,7 +13,7 @@ def ldap_conn(hostname, port, user, passwd, starttls=False):
     If it can't establish the connection, this function will try
     to use ``ldaps`` scheme. Otherwise, exception will be raised.
 
-    Example:
+    Example::
 
         with ldap_conn(hostname, port, user, passwd) as conn:
             conn.search_s()

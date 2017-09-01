@@ -36,6 +36,14 @@ clustermgr\.core\.ox11 module
     :undoc-members:
     :show-inheritance:
 
+clustermgr\.core\.remote module
+-------------------------------
+
+.. automodule:: clustermgr.core.remote
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 clustermgr\.core\.utils module
 ------------------------------
 

@@ -7,8 +7,10 @@ from clustermgr.core.remote import RemoteClient
 def setup_provider(self, server_id, conffile):
     server = LDAPServer.query.get(server_id)
     tid = self.request.id
-    p = RemoteClient(server.hostname)
-
-    # TODO 
-    # Finish with simpler way to run the setup procedures
-
+    c = RemoteClient(server.hostname)
+    try:
+        c.startup()
+    except Exception as e:
+        wlogger.log(tid, "Cannot establish SSH connection {0}".format(e),
+                    "error")
+        return False

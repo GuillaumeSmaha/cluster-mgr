@@ -19,9 +19,9 @@ class RemoteClient(object):
     Attributes:
         host (string): The hostname passed in as a the argument
         user (string): The user to connect as to the remote server
-        client (:obj:`paramiko.client.SSHClient`): The SSHClient object used
+        client (:class:`paramiko.client.SSHClient`): The SSHClient object used
             for all the communications with the remote server.
-        sftpclient (:obj:`paramiko.sftp_client.SFTPClient`): The SFTP object
+        sftpclient (:class:`paramiko.sftp_client.SFTPClient`): The SFTP object
             for all the file transfer operations over the SSH.
     """
 
@@ -32,14 +32,13 @@ class RemoteClient(object):
         self.sftpclient = None
         self.client.set_missing_host_key_policy(AutoAddPolicy())
         self.client.load_system_host_keys()
-        try:
-            self.client.connect(self.host, port=22, username=user)
-        except Exception as e:
-            print e
-            self.client = None
 
-        if self.client:
-            self.sftpclient = self.client.open_sftp()
+    def startup(self):
+        """Function that starts SSH connection and makes client available for
+        carrying out the functions.
+        """
+        self.client.connect(self.host, port=22, username=self.user)
+        self.sftpclient = self.client.open_sftp()
 
     def download(self, remote, local):
         """Downloads a file from remote server to the local system.
@@ -71,7 +70,7 @@ class RemoteClient(object):
         """Returns whether a file exists or not in the remote server.
 
         Args:
-            filepath (string) - path to the file to check for existance
+            filepath (string): path to the file to check for existance
 
         Returns:
             True if it exists, False if it doesn't
@@ -89,7 +88,7 @@ class RemoteClient(object):
         """Run a command in the remote server.
 
         Args:
-            command (string) - the command to be run on the remote server
+            command (string): the command to be run on the remote server
         """
         if not self.client:
             raise ClientNotSetupException(

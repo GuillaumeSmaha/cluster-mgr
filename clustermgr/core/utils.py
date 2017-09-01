@@ -23,13 +23,13 @@ def parse_slapdconf(old_conf=None):
             Defatuls to /opt/symas/etc/openldap/slapd.conf
 
     Returns:
-        dict containing the values for the following:
-        * openldapSchemaFolder
-        * openldapTLSCACert
-        * openldapTLSCert
-        * openldapTLSKey
-        * encoded_ldap_pw
-        * BCRYPT - This has {} around it, so an escape value `{BCRYPT}`
+        dict containing the values for the following
+            * openldapSchemaFolder
+            * openldapTLSCACert
+            * openldapTLSCert
+            * openldapTLSKey
+            * encoded_ldap_pw
+            * BCRYPT - This has {} around it, so an escape value `{BCRYPT}`
     """
     if not old_conf:
         old_conf = '/opt/symas/etc/openldap/slapd.conf'
@@ -86,10 +86,9 @@ def generate_random_iv(length=8):
 def encrypt_text(text, key, iv):
     """Encrypts plain text using Blowfish and CBC.
 
-    Example:
+    Example::
 
         import os
-
         # keep the same key and iv for decrypting the text
         key = os.urandom(32)
         iv = os.urandom(8)
@@ -111,7 +110,7 @@ def encrypt_text(text, key, iv):
 def decrypt_text(encrypted_text, key, iv):
     """Decrypts encrypted text using Blowfish and CBC.
 
-    Example:
+    Example::
 
         # use the same key and iv used in encrypting the text
         text = decrypt_text(enc_text, key, iv)
@@ -130,4 +129,14 @@ def decrypt_text(encrypted_text, key, iv):
 
 
 def random_chars(size=12, chars=DEFAULT_CHARSET):
+    """Returns a string of random alpha-numeric characters.
+
+    Args:
+        size (int, optional): the length of the string. Defaults to 12
+        chars (string, optional): a selection of characters to pick the random
+            ones for the return string
+
+    Returns:
+        a string of random characters
+    """
     return ''.join(random.choice(chars) for _ in range(size))
