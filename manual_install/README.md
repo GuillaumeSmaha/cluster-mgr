@@ -5,21 +5,32 @@ Steps for manual integration of delt-syncrepl with Gluu
 ### 1) [Install Gluu](https://gluu.org/docs/ce/3.0.2/installation-guide/install/) on one server using a separate NGINX server FQDN as hostname. 
 - NGINX is recommended since replicating a Gluu server to a different hostname breaks the functionality of OxTrust and OxAuth when using a hostname other than what is in the certificates. For example, if I used c1.gluu.info as my host and another install of gluu as c2.gluu.info, the process of accessing the site on c2.gluu.info, even with replication, will fail authentication. So if c1 failed, you couldn't access the Gluu web GUI anymore.
 
-### 2) Copy the installation properties to the new servers.
+### 2) Logout of the Gluu chroot and stop the service.
 
 ```
-scp /install/community-edition-setup/setup.properties.last root@server.com:/opt/gluu-server-3.0.2/install/community-edition-setup/
+logout
+service gluu-server-3.0.2 stop
 ```
+- Now tar the /opt/gluu-server-3.0.2/ folder, copy it to the other servers and extract it in the /opt/ folder.
 
-- Edit the IP address in the file to the servers actual IP address. The entry will begin with `ip=` and is usually on the 175th line. 
+```
+tar -cvf gluu.gz /opt/gluu-server-3.0.2/
+scp gluu.gz root@server2.com:/opt/
+tar -xvf gluu.gz
+```
+### 3) Start Gluu, login and modify the `/etc/hosts/` inside the chroot to point the FQDN of the NGINX server to the current servers IP address
+ - For example my node 2 servers ip address is `138.197.xxx.xxx`
+```
+127.0.0.1       localhost
+::1             ip6-localhost ip6-loopback
+ff02::1         ip6-allnodes
+ff02::2         ip6-allrouters
+138.197.xxx.xxx         c3.gluu.info
+```
+- Repeat this for every server
+- This is necessary to deal internal routing of NGINX to Apache2 and Apache2 to NGINX. So even though my ip of my FQDN is different, this process still works.
 
-- Then rename to setup.properties
-
-`mv setup.properties.last setup.properties`
-
-### 4) Run `setup.py` and just hit `enter`. The configuration's are already loaded.
-
-### 5) There needs to be primary server to replicate from initially for delta-syncrepl to inject data from. After the initial sync, all servers will be exactly the same. 
+### 4) There needs to be primary server to replicate from initially for delta-syncrepl to inject data from. After the initial sync, all servers will be exactly the same. 
 
 - So choose one server as a base and then on every other server:
 ```
@@ -30,7 +41,7 @@ rm /opt/gluu/data/main_db/*.mdb
 mkdir /opt/gluu/data/accesslog_db
 chown -R ldap. /opt/gluu/data/
 ```
-### 6) Now is where we will set servers to associate with each other for MMR by editing the slapd.conf, ldap.conf and symas-openldap.conf files.
+### 5) Now is where we will set servers to associate with each other for MMR by editing the slapd.conf, ldap.conf and symas-openldap.conf files.
 
 - Creating the slapd.conf file is relatively easy, but can be prone to errors if done manually. Attached is are a script and template files for creating multiple slapd.conf files for every server. Download git and the necessary files:
 ```
@@ -91,7 +102,7 @@ vi /opt/symas/etc/openldap/symas-openldap.conf
 HOST_LIST="ldaps://0.0.0.0:1636/ ldaps:///"
 ...
 ```
-### 7) It is important that our servers times are synchronized so we must install ntp outside of the Gluu chroot and set ntp to update by the minute (necessary for delta-sync log synchronization). If time gets out of sync, the entries will conflict and their could be issues.
+### 6) It is important that our servers times are synchronized so we must install ntp outside of the Gluu chroot and set ntp to update by the minute (necessary for delta-sync log synchronization). If time gets out of sync, the entries will conflict and their could be issues.
 ```
 GLUU.root@host:/ # logout
 # apt install ntp
@@ -103,7 +114,7 @@ GLUU.root@host:/ # logout
 ```
 - This synchronizes the time every minute.
 
-### 8) Force-reload solserver on every server
+### 7) Force-reload solserver on every server
 ```
 # service gluu-server-3.0.2 login
 # service solserver force-reload
@@ -170,23 +181,8 @@ http {
         proxy_pass https://backend_id/oxauth;
     }
 
-    location /idp {
-        proxy_pass https://backend_id/idp;
-    }
     location /identity {
         proxy_pass https://backend_id/identity;
-    }
-    location /cas {
-        proxy_pass https://backend_id/cas;
-    }
-    location /asimba {
-        proxy_pass https://backend_id/asimba;
-    }
-    location /oxauth-rp {
-        proxy_pass https://backend_id/oxauth-rp;
-    }
-    location /passport {
-        proxy_pass https://backend_id/passport;
     }
   }
 }
