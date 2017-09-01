@@ -176,6 +176,18 @@ http {
     location /identity {
         proxy_pass https://backend_id/identity;
     }
+    location /cas {
+        proxy_pass https://backend_id/cas;
+    }
+    location /asimba {
+        proxy_pass https://backend_id/asimba;
+    }
+    location /oxauth-rp {
+        proxy_pass https://backend_id/oxauth-rp;
+    }
+    location /passport {
+        proxy_pass https://backend_id/passport;
+    }
   }
 }
 
