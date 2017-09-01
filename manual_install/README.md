@@ -135,10 +135,11 @@ Aug 23 22:40:36 dc4 slapd[79544]: syncprov_sendresp: to=003, cookie=rid=002,sid=
 ```
 
 ### 9) Configuring your NGINX server is simple enough. 
-- We need the httpd.crt and httpd.key certs from our base Gluu installation.
+- We need the httpd.crt and httpd.key certs from one of the Gluu installations.
 ```
 mkdir /etc/nginx/ssl/
-scp root@server1.com:/opt/gluu-server-3.0.2/etc/certs/httpd.*
+scp root@server1.com:/opt/gluu-server-3.0.2/etc/certs/httpd.key /etc/nginx/ssl/
+scp root@server1.com:/opt/gluu-server-3.0.2/etc/certs/httpd.crt /etc/nginx/ssl/
 ```
 - Next we configure NGINX to proxy-pass connections.
 ```
