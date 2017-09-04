@@ -80,7 +80,6 @@ class RemoteClient(object):
         finally:
             return "File transfer successful."
 
-
     def exists(self, filepath):
         """Returns whether a file exists or not in the remote server.
 

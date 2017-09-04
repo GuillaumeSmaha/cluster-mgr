@@ -8,7 +8,26 @@ from clustermgr.extensions import celery, wlogger
 from clustermgr.core.remote import RemoteClient
 
 
-def run_command(tid, c, command):
+def run_command(tid, c, command, container=None):
+    """Shorthand for RemoteClient.run(). This function automatically logs
+    the commands output at appropriate levels to the WebLogger to be shared
+    in the web frontend.
+
+    Args:
+        tid (string): task id of the task to store the log
+        c (:object:`clustermgr.core.remote.RemoteClient`): client to be used
+            for the SSH communication
+        command (string): the command to be run on the remote server
+        container (string, optional): location where the Gluu Server container
+            is installed. For standalone LDAP servers this is not necessary.
+
+    Returns:
+        the output of the command or the err thrown by the command as a string
+    """
+    if container:
+        command = 'chroot {0} /bin/bash -c "{1}"'.format(container,
+                                                         command)
+
     wlogger.log(tid, command, "debug")
     cin, cout, cerr = c.run(command)
     output = ''
@@ -22,7 +41,32 @@ def run_command(tid, c, command):
 
 
 def upload_file(tid, c, local, remote):
+    """Shorthand for RemoteClient.upload(). This function automatically handles
+    the logging of events to the WebLogger
+
+    Args:
+        tid (string): id of the task running the command
+        c (:object:`clustermgr.core.remote.RemoteClient`): client to be used
+            for the SSH communication
+        local (string): local location of the file to upload
+        remote (string): location of the file in remote server
+    """
     out = c.upload(local, remote)
+    wlogger.log(tid, out, 'error' if 'Error' in out else 'success')
+
+
+def download_file(tid, c, remote, local):
+    """Shorthand for RemoteClient.download(). This function automatically handles
+    the logging of events to the WebLogger
+
+    Args:
+        tid (string): id of the task running the command
+        c (:object:`clustermgr.core.remote.RemoteClient`): client to be used
+            for the SSH communication
+        remote (string): location of the file in remote server
+        local (string): local location of the file to upload
+    """
+    out = c.download(remote, local)
     wlogger.log(tid, out, 'error' if 'Error' in out else 'success')
 
 
@@ -136,3 +180,92 @@ def setup_provider(self, server_id, conffile):
         wlogger.log(tid, "OpenLDAP server failed to start.", "error")
         wlogger.log(tid, "Debugging slapd...", "info")
         run_command(tid, "service solserver start -d 1")
+
+
+@celery.task(bind=True)
+def configure_gluu_server(self, server_id, conffile):
+    server = LDAPServer.query.get(server_id)
+    tid = self.request.id
+    chdir = '/opt/gluu-server-'+server.gluu_version
+
+    wlogger.log(tid, "Connecting to the server %s" % server.hostname)
+    c = RemoteClient(server.hostname)
+    try:
+        c.startup()
+    except Exception as e:
+        wlogger.log(tid, "Cannot establish SSH connection {0}".format(e),
+                    "error")
+
+    wlogger.log(tid, "Retrying with the IP address")
+    c = RemoteClient(server.ip)
+    try:
+        c.startup()
+    except Exception as e:
+        wlogger.log(tid, "Cannot establish SSH connection {0}".format(e),
+                    "error")
+        wlogger.log(tid, "Ending server setup process.", "error")
+        return False
+
+    # Since it is a Gluu Server, a number of checks can be avoided
+    # 1. Check if OpenLDAP is installed
+    # 2. Check if symas-openldap.conf files exists
+    # 3. Check for certificates - They will be at /etc/certs
+
+    # 4. Existance of data directories - this is necassr check as we will be
+    #    enabling accesslog DIT, maybe others by admin in the conf editor
+    wlogger.log(tid, "Checking existing data and schema folders for LDAP")
+    conf = open(conffile, 'r')
+    for line in conf:
+        if re.match('^directory', line):
+            folder = line.split()[1]
+            if not c.exists(os.path.join(chdir, folder)):
+                run_command(tid, 'mkdir -p '+folder, chdir)
+            else:
+                wlogger.log(tid, folder, 'success')
+
+    # 5. Gluu Schema file will be present - no checks required
+
+    # 6. Copy User's custom schema files if any
+    schemas = os.listdir(app.config['SCHEMA_DIR'])
+    if len(schemas):
+        wlogger.log(tid, "Copying custom schema files to the server")
+        for schema in schemas:
+            local = os.path.join(app.config['SCHEMA_DIR'], schema)
+            remote = chdir+"/opt/gluu/schema/openldap/"+schema
+            upload_file(tid, c, local, remote)
+
+    # 7. Copy the slapd.conf
+    wlogger.log(tid, "Copying slapd.conf file to the server")
+    upload_file(tid, c, conffile, chdir+"/opt/symas/etc/openaldap/slapd.conf")
+
+    # 8. Download openldap.crt to be used in other servers for ldaps
+    wlogger.log(tid, "Downloading SSL Certificate to be used in other servers")
+    remote = chdir + '/etc/certs/openldap.crt'
+    local = os.path.join(app.config["CERTS_DIR"],
+                         "{0}.crt".format(server.hostname))
+    download_file(tid, c, remote, local)
+
+    wlogger.log(tid, "Checking the running status of LDAP server")
+    status = run_command(tid, c, 'service solserver status', chdir)
+
+    if 'is running' in status:
+        wlogger.log(tid, "Stopping the LDAP server")
+        run_command(tid, c, 'service solserver stop', chdir)
+
+    wlogger.log(tid, "Convert slapd.conf to slapd.d OLC")
+    run_command(tid, c, "rm -f /opt/symas/etc/openldap/slapd.d", chdir)
+    run_command(tid, c, "mkdir /opt/symas/etc/openldap/slapd.d", chdir)
+    run_command(tid, c, "/opt/symas/bin/slaptest -f /opt/symas/etc/openldap/"
+                "slapd.conf -F /opt/symas/etc/openldap/slapd.d", chdir)
+
+    run_command(tid, c, "chown -R ldap:ldap /opt/gluu/data", chdir)
+    run_command(tid, c, "chown -R ldap:ldap /opt/gluu/schema/openldap", chdir)
+    run_command(tid, c, "chown -R ldap:ldap /opt/symas/etc/openldap/slapd.d",
+                chdir)
+
+    wlogger.log(tid, "Restarting LDAP server with OLC configuration")
+    log = run_command(tid, c, "service solserver start", chdir)
+    if 'failed' in log:
+        wlogger.log(tid, "There seems to be some issue in starting the server."
+                    "Running LDAP server in debug mode for troubleshooting")
+        run_command(tid, c, "service solserver start -d 1", chdir)

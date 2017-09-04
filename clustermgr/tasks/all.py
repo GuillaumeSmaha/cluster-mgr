@@ -10,7 +10,6 @@ import requests
 from fabric.api import run, execute, cd, put, env, get
 from fabric.context_managers import settings
 from fabric.contrib.files import exists
-from ldap.modlist import modifyModlist
 from flask import current_app as app
 
 from clustermgr.extensions import celery, db, wlogger
@@ -241,80 +240,6 @@ def chcmd(chdir, command):
     return 'chroot /opt/{0} /bin/bash -c "{1}"'.format(chdir, command)
 
 
-def gen_slapd_gluu(taskid, server, conffile):
-    sloc = 'gluu-server-'+server.gluu_version
-    # 1. OpenLDAP is installed inside the container
-    # 2. symas-openldap.conf file is present inside CE
-    # 3. Certificates are generate by setup.py and present
-    # 4. Data directories are present in CE installation
-    wlogger.log(taskid, "Checking for data and schema folders for LDAP")
-    conf = open(conffile, 'r')
-    for line in conf:
-        if re.match('^directory', line):
-            folder = line.split()[1]
-            if not exists(os.path.join("/opt/"+sloc, folder)):
-                run_command(taskid, chcmd(sloc, 'mkdir -p '+folder))
-            else:
-                wlogger.log(taskid, folder, 'success')
-
-    # 5. Gluu Schema files are present
-    #
-    # 6. Copy user's custom schema files
-    wlogger.log(taskid, "Copying the custom schemas to the server.")
-    schemas = os.listdir(app.config['SCHEMA_DIR'])
-    if len(schemas):
-        for schema in schemas:
-            out = put(os.path.join(app.config['SCHEMA_DIR'], schema),
-                      "/opt/"+sloc+"/opt/gluu/schema/openldap/"+schema)
-            wlogger.log(taskid, out, "debug")
-    # 7. Copy the sladp.conf
-    wlogger.log(taskid, "Copying slapd.conf file to remote server")
-    out = put(conffile, '/opt/'+sloc+'/opt/symas/etc/openldap/slapd.conf')
-    if out.failed:
-        wlogger.log(taskid, "Failed to copy the slapd.conf file", "error")
-    # 8. Backup openldap.crt to be used in consumers
-    wlogger.log(taskid, "Creating backup of openldap.crt")
-    out = get("/opt/"+sloc+"/etc/certs/openldap.crt", os.path.join(
-        app.config["CERTS_DIR"], "{0}.crt".format(env.host)))
-    if out.failed:
-        wlogger.log(taskid, "Failed to copy the openldap.crt file", "error")
-
-    wlogger.log(taskid, "Checking status of LDAP server")
-    status = run_command(taskid, chcmd(sloc, 'service solserver status'))
-
-    if 'is running' in status:
-        wlogger.log(taskid, "Stopping LDAP Server")
-        run_command(taskid, chcmd(sloc, 'service solserver stop'))
-
-    with cd('/opt/'+sloc+'/opt/symas/etc/openldap/'):
-        wlogger.log(taskid, "Generating slad.d Online Configuration")
-        run_command(taskid, 'rm -rf slapd.d')
-        run_command(taskid, 'mkdir slapd.d')
-
-    run_command(taskid, chcmd(
-        sloc, '/opt/symas/bin/slaptest -f /opt/symas/etc/openldap/slapd.conf '
-        ' -F /opt/symas/etc/openldap/slapd.d'))
-
-    wlogger.log(taskid, "Setting ownership of slapd files")
-    run_command(taskid, chcmd(sloc, "chown -R ldap:ldap /opt/gluu/data"))
-    run_command(taskid,
-                chcmd(sloc, "chown -R ldap:ldap /opt/gluu/schema/openldap"))
-    run_command(
-        taskid,
-        chcmd(sloc, "chown -R ldap:ldap /opt/symas/etc/openldap/slapd.d"))
-
-    wlogger.log(taskid, "Starting LDAP server")
-    log = run_command(taskid, chcmd(sloc, 'service solserver start'))
-    if 'failed' in log:
-        wlogger.log(taskid, "Debugging slapd...", "fail")
-        run_command(taskid, chcmd(sloc, "service solserver start -d 1"))
-        return
-    # Restart gluu-server
-    wlogger.log(taskid, "Restarting Gluu Server")
-    run_command(taskid, 'service '+sloc+' stop')
-    run_command(taskid, 'service '+sloc+' start')
-
-
 def copy_certificate(server, certname):
     certfile = os.path.join(app.config["CERTS_DIR"], certname+".crt")
     if server.gluu_server:
@@ -335,17 +260,8 @@ def setup_server(self, server_id, conffile):
         with settings(warn_only=True):
             execute(copy_certificate, server, server.provider.hostname,
                     hosts=[host])
-
-    try:
-        with settings(warn_only=True):
-            execute(gen_slapd_gluu, tid, server, conffile, hosts=[host])
-    except:
-        wlogger.log(tid, "Failed setting up server.", "error")
-        server.setup = False
-        db.session.commit()
-        v = sys.exc_info()[1]
-        wlogger.log(tid, str(v), "debug")
-        return
+    # TODO find where this copy certificate routine should be injected in
+    # cluster.py
 
     # Everything is done. Set the flag to based on the messages
     msgs = wlogger.get_messages(tid)
