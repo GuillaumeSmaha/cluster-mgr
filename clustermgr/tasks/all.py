@@ -236,93 +236,6 @@ def replicate(self):
     return test_result
 
 
-def generate_slapd(taskid, server, conffile):
-    wlogger.log(taskid, 'Starting preliminary checks')
-    # 1. OpenLDAP is installed
-    if exists('/opt/symas/bin/slaptest'):
-        wlogger.log(taskid, 'Checking if OpenLDAP is installed', 'success')
-    else:
-        wlogger.log(taskid, 'Cheking if OpenLDAP is installed', 'fail')
-        wlogger.log(taskid, 'Kindly install OpenLDAP on the server and refresh'
-                    ' this page to try setup again.')
-        return
-    # 2. symas-openldap.conf file exists
-    if exists('/opt/symas/etc/openldap/symas-openldap.conf'):
-        wlogger.log(taskid, 'Checking symas-openldap.conf exists', 'success')
-    else:
-        wlogger.log(taskid, 'Checking if symas-openldap.conf exists', 'fail')
-        wlogger.log(taskid, 'Configure OpenLDAP with /opt/gluu/etc/openldap'
-                    '/symas-openldap.conf', 'warning')
-        return
-    # 3. Certificates
-    if server.tls_cacert:
-        if exists(server.tls_cacert):
-            wlogger.log(taskid, 'Checking TLS CA Certificate', 'success')
-        else:
-            wlogger.log(taskid, 'Checking TLS CA Certificate', 'fail')
-    if server.tls_servercert:
-        if exists(server.tls_servercert):
-            wlogger.log(taskid, 'Checking TLS Server Certificate', 'success')
-        else:
-            wlogger.log(taskid, 'Checking TLS Server Certificate', 'fail')
-    if server.tls_serverkey:
-        if exists(server.tls_serverkey):
-            wlogger.log(taskid, 'Checking TLS Server Key', 'success')
-        else:
-            wlogger.log(taskid, 'Checking TLS Server Key', 'fail')
-    # 4. Data directories
-    wlogger.log(taskid, "Checking for data and schema folders for LDAP")
-    conf = open(conffile, 'r')
-    for line in conf:
-        if re.match('^directory', line):
-            folder = line.split()[1]
-            if not exists(folder):
-                run_command(taskid, 'mkdir -p '+folder)
-            else:
-                wlogger.log(taskid, folder, 'success')
-
-    # 5. Copy Gluu Schema files
-    if not exists('/opt/gluu/schema/openldap'):
-        run_command(taskid, 'mkdir -p /opt/gluu/schema/openldap')
-    wlogger.log(taskid, "Copying Schema files to server")
-    gluu_schemas = os.listdir(os.path.join(app.static_folder, 'schema'))
-    for schema in gluu_schemas:
-        out = put(os.path.join(app.static_folder, 'schema', schema),
-                  "/opt/gluu/schema/openldap/"+schema)
-        wlogger.log(taskid, out, "debug")
-    # 6. Copy User's custom schema files
-    schemas = os.listdir(app.config['SCHEMA_DIR'])
-    if len(schemas):
-        for schema in schemas:
-            out = put(os.path.join(app.config['SCHEMA_DIR'], schema),
-                      "/opt/gluu/schema/openldap/"+schema)
-            wlogger.log(taskid, out, "debug")
-
-    wlogger.log(taskid, "Copying slapd.conf file to remote server")
-    out = put(conffile, '/opt/symas/etc/openldap/slapd.conf')
-    if out.failed:
-        wlogger.log(taskid, "Failed to copy the slapd.conf file", "error")
-
-    wlogger.log(taskid, "Checking status of LDAP server")
-    status = run_command(taskid, 'service solserver status')
-
-    if 'is running' in status:
-        wlogger.log(taskid, "Stopping LDAP Server")
-        run_command(taskid, 'service solserver stop')
-
-    with cd('/opt/symas/etc/openldap/'):
-        wlogger.log(taskid, "Generating slapd.d Online Configuration")
-        run_command(taskid, 'rm -rf slapd.d')
-        run_command(taskid, 'mkdir slapd.d')
-        run_command(taskid, '/opt/symas/bin/slaptest -f slapd.conf -F slapd.d')
-
-    wlogger.log(taskid, "Starting LDAP server")
-    log = run_command(taskid, 'service solserver start')
-    if 'failed' in log:
-        wlogger.log(taskid, "Debugging slapd...", "fail")
-        run_command(taskid, "service solserver start -d 1")
-
-
 def chcmd(chdir, command):
     # chroot /chroot_dir /bin/bash -c "<command>"
     return 'chroot /opt/{0} /bin/bash -c "{1}"'.format(chdir, command)
@@ -425,10 +338,7 @@ def setup_server(self, server_id, conffile):
 
     try:
         with settings(warn_only=True):
-            if server.gluu_server:
-                execute(gen_slapd_gluu, tid, server, conffile, hosts=[host])
-            else:
-                execute(generate_slapd, tid, server, conffile, hosts=[host])
+            execute(gen_slapd_gluu, tid, server, conffile, hosts=[host])
     except:
         wlogger.log(tid, "Failed setting up server.", "error")
         server.setup = False

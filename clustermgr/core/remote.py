@@ -51,7 +51,14 @@ class RemoteClient(object):
             raise ClientNotSetupException(
                 'Cannot download file. Client not initialized')
 
-        return self.sftpclient.get(remote, local)
+        try:
+            self.sftpclient.get(remote, local)
+        except OSError:
+            return "Error: Local file %s doesn't exist." % local
+        except IOError:
+            return "Error: Remote location %s doesn't exist." % remote
+        finally:
+            return "File transfer successful."
 
     def upload(self, local, remote):
         """Uploads the file from local location to remote server.
@@ -64,7 +71,15 @@ class RemoteClient(object):
             raise ClientNotSetupException(
                 'Cannot upload file. Client not initialized')
 
-        return self.sftpclient.put(local, remote)
+        try:
+            self.sftpclient.put(local, remote)
+        except OSError:
+            return "Error: Local file %s doesn't exist." % local
+        except IOError:
+            return "Error: Remote location %s doesn't exist." % remote
+        finally:
+            return "File transfer successful."
+
 
     def exists(self, filepath):
         """Returns whether a file exists or not in the remote server.
@@ -89,12 +104,23 @@ class RemoteClient(object):
 
         Args:
             command (string): the command to be run on the remote server
+
+        Returns:
+            tuple of three strings containing text from stdin, stdout an stderr
         """
         if not self.client:
             raise ClientNotSetupException(
                 'Cannot run procedure. Client not initialized')
 
-        return self.client.exec_command(command)
+        buffers = self.client.exec_command(command)
+        output = []
+        for buf in buffers:
+            try:
+                output.append(buf.read())
+            except IOError:
+                output.append('')
+
+        return tuple(output)
 
     def close(self):
         """Close the SSH Connection

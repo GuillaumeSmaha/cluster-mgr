@@ -87,7 +87,7 @@ class WebLogger(object):
             message (string) - the log message to be stored
             level (string)  - levels like 'info', 'debug'. Defaults to info
         """
-        logitem = {'msg': message}
+        logitem = {'msg': message.strip()}
         if level:
             logitem['level'] = level
         else:
