@@ -2,7 +2,7 @@
 # Manual Gluu Server Clustering 
 
 ## Introduction
-Below are the steps to follow for configuring delta-syncrepl multi-master replication with Gluu.
+Below are the steps to follow for manually configuring delta-syncrepl multi-master replication with Gluu.
 
 ## Prerequisites
 
