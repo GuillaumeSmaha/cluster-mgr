@@ -19,13 +19,13 @@ scp gluu.gz root@server2.com:/opt/
 tar -xvf gluu.gz
 ```
 ### 3) Start Gluu, login and modify the `/etc/hosts/` inside the chroot to point the FQDN of the NGINX server to the current servers IP address
- - For example my node 2 servers ip address is `138.197.xxx.xxx`
+ - For example my node 2 servers (c2.gluu.info) ip address is `138.197.100.101`
 ```
 127.0.0.1       localhost
 ::1             ip6-localhost ip6-loopback
 ff02::1         ip6-allnodes
 ff02::2         ip6-allrouters
-138.197.xxx.xxx         c3.gluu.info
+138.197.100.101         c3.gluu.info
 ```
 - Repeat this for every server
 - This is necessary to deal internal routing of NGINX to Apache2 and Apache2 to NGINX. So even though my ip of my FQDN is different, this process still works.
@@ -36,18 +36,18 @@ ff02::2         ip6-allrouters
 ```
 rm /opt/gluu/data/main_db/*.mdb
 ```
-- now make accesslog directories on every servers
+- now make accesslog directories on every servers and give ldap ownership:
 ```
 mkdir /opt/gluu/data/accesslog_db
 chown -R ldap. /opt/gluu/data/
 ```
 ### 5) Now is where we will set servers to associate with each other for MMR by editing the slapd.conf, ldap.conf and symas-openldap.conf files.
 
-- Creating the slapd.conf file is relatively easy, but can be prone to errors if done manually. Attached is are a script and template files for creating multiple slapd.conf files for every server. Download git and the necessary files:
+- Creating the slapd.conf file is relatively easy, but can be prone to errors if done manually. Attached is a script and template files for creating multiple slapd.conf files for every server. Download git and clone the necessary files:
 ```
 apt-get update && apt-get install git && cd /tmp/ && git clone https://github.com/GluuFederation/cluster-mgr.git && cd /tmp/cluster-mgr/manual_install/slapd_conf_script/
 ```
-- We need to configure the file for our own specific needs:
+- We need to change the configuration file for our own specific needs:
 ```
 vi syncrepl.cfg
 ```
@@ -134,21 +134,22 @@ Aug 23 22:40:36 dc4 slapd[79544]: syncrepl_message_to_op: rid=001 be_modify inum
 Aug 23 22:40:36 dc4 slapd[79544]: syncprov_sendresp: to=003, cookie=rid=002,sid=002,csn=20170823224036.310829Z#000000#001#000000
 ```
 
-### 9) Configuring your NGINX server is simple enough. 
-- We need the httpd.crt and httpd.key certs from one of the Gluu installations.
+### 9) Now let's configure your NGINX server for oxTrust and oxAuth web failover. 
+- We need the httpd.crt and httpd.key certs from one of the Gluu servers.
+Nginx server:
 ```
 mkdir /etc/nginx/ssl/
 scp root@server1.com:/opt/gluu-server-3.0.2/etc/certs/httpd.key /etc/nginx/ssl/
 scp root@server1.com:/opt/gluu-server-3.0.2/etc/certs/httpd.crt /etc/nginx/ssl/
 ```
-- Next we configure NGINX to proxy-pass connections.
+- Next we install and configure NGINX to proxy-pass connections.
 ```
 apt-get install nginx -y
 cd /etc/nginx/
 >nginx.conf
 vi nginx.conf
 ```
-- Put this template in it's place. Make sure to change the `{serverX_ip_or_FQDN}` portion to your servers IP addresses or FQDN under the upstream section. Add as many servers as exister in your replication setup. The `server_name` needs to be your NGINX servers FQDN.
+- Put the following template in it's place. Make sure to change the `{serverX_ip_or_FQDN}` portion to your servers IP addresses or FQDN under the upstream section. Add as many servers as exist in your replication setup. The `server_name` needs to be your NGINX servers FQDN.
 ```
 user www-data;
 worker_processes 4;
