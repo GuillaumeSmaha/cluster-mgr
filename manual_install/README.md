@@ -1,11 +1,18 @@
 
-# Steps for manual integration of delta-syncrepl multi-master replication with Gluu
-#### (Instructions built for use with Ubuntu 14 Trusty, but the process shouldn't be OS specific.)
+# Manual Gluu Server Clustering 
+
+## Introduction
+Below are the steps to follow for configuring delta-syncrepl multi-master replication with Gluu.
+
+## Prerequisites
 
 Some prerequisites are necessary for setting up Gluu with delta-syncrepl MMR:
 
 - A minimum of 3 server VM's, 2 for Gluu and 1 for NGINX.
-- Gluu server 3.0.*
+- Gluu server 3.x
+- I used Ubuntu 14 Trusty, but the process shouldn't be OS specific.
+
+## Instructions
 
 1. [Install Gluu](https://gluu.org/docs/ce/3.0.2/installation-guide/install/) on one server making sure to use a separate NGINX server FQDN as hostname.
 
@@ -17,19 +24,26 @@ Some prerequisites are necessary for setting up Gluu with delta-syncrepl MMR:
 Gluu.Root # logout
 # service gluu-server-3.0.2 stop
 ```
- - Now tar the /opt/gluu-server-3.0.2/ folder, copy it to the other servers and extract it in the /opt/ folder.
+
+- Now tar the /opt/gluu-server-3.0.2/ folder, copy it to the other servers and extract it in the /opt/ folder.
+
 ```
 tar -cvf gluu.gz /opt/gluu-server-3.0.2/
 scp gluu.gz root@server2.com:/opt/
 ...
 ```
+
 Server 2
+
 ```
 cd /opt/
 tar -xvf gluu.gz
 ```
+
 3. Start Gluu, login and modify the `/etc/hosts/` inside the chroot to point the FQDN of the NGINX server to the current servers IP address
- - For example my node 2 servers (c2.gluu.info) ip address is `138.197.100.101` so on server 2:
+
+- For example my node 2 servers (c2.gluu.info) ip address is `138.197.100.101` so on server 2:
+
 ```
 127.0.0.1       localhost
 ::1             ip6-localhost ip6-loopback
@@ -37,32 +51,44 @@ ff02::1         ip6-allnodes
 ff02::2         ip6-allrouters
 138.197.100.101         c3.gluu.info
 ```
+
 - Note that my c3 NGINX server FQDN is pointing to my c2 ip.
+
 - Repeat this for every server that Gluu is unpacked on.
+
 - This is necessary to deal with internal routing of NGINX to Apache2 and Apache2 to NGINX. So even though my ip of my FQDN is different, this process still works.
 
 4. There needs to be primary server to replicate from initially for delta-syncrepl to inject data from. After the initial sync, all servers will be exactly the same, as delta-syncrepl will fill the newly created database. 
 
- - So choose one server as a base and then on every other server:
+- So choose one server as a base and then on every other server:
+
 ```
 rm /opt/gluu/data/main_db/*.mdb
 ```
- - now make accesslog directories on every servers and give ldap ownership:
+
+- Now make accesslog directories on every servers and give ldap ownership:
+
 ```
 mkdir /opt/gluu/data/accesslog_db
 chown -R ldap. /opt/gluu/data/
 ```
+
 5. Now is where we will set servers to associate with each other for MMR by editing the slapd.conf, ldap.conf and symas-openldap.conf files.
 
- - Creating the slapd.conf file is relatively easy, but can be prone to errors if done manually. Attached is a script and template files for creating multiple slapd.conf files for every server. Download git and clone the necessary files:
+- Creating the slapd.conf file is relatively easy, but can be prone to errors if done manually. Attached is a script and template files for creating multiple slapd.conf files for every server. Download git and clone the necessary files:
+
 ```
 apt-get update && apt-get install git && cd /tmp/ && git clone https://github.com/GluuFederation/cluster-mgr.git && cd /tmp/cluster-mgr/manual_install/slapd_conf_script/
 ```
- - We need to change the configuration file for our own specific needs:
+
+- We need to change the configuration file for our own specific needs:
+
 ```
 vi syncrepl.cfg
 ```
- - Here we want to change the `ip_address`, `fqn_hostname`, `ldap_password` to our specific server instances. For example:
+
+- Here we want to change the `ip_address`, `fqn_hostname`, `ldap_password` to our specific server instances. For example:
+
 ```
 [server_1]
 ip_address = 192.168.30.133
@@ -79,56 +105,77 @@ enable = Yes
 [server_3]
 ...
 ```
- - The hostname should be the FQDN of the servers, not the NGINX server.
 
- - If required, you can change the `/tmp/cluster-mgr/manual_install/slapd_conf_script/ldap_templates/slapd.conf` to fit your specific needs to include different schemas, indexes, etc. Avoid changing any of the `{#variables#}`.
+- The hostname should be the FQDN of the servers, not the NGINX server.
 
- - Now run the python script `create_slapd_conf.py`:
+- If required, you can change the `/tmp/cluster-mgr/manual_install/slapd_conf_script/ldap_templates/slapd.conf` to fit your specific needs to include different schemas, indexes, etc. Avoid changing any of the `{#variables#}`.
+
+- Now run the python script `create_slapd_conf.py`:
+
 ```
 # python /tmp/cluster-mgr/manual_install/slapd_conf_script/create_slapd_conf.py
 ```
- - This will output multiple `.conf` files in your current directory named to match your server FQDN:
+
+- This will output multiple `.conf` files in your current directory named to match your server FQDN:
+
 ```
 # ls
 ... server1_com.conf  server2_com.conf ...
 ```
- - Move each .conf file to their respective server @:
+
+- Move each .conf file to their respective server @:
+
 `/opt/gluu-server-3.0.2/opt/symas/etc/openldap/slapd.conf`
- - Now create and modify the ldap.conf:
+
+- Now create and modify the ldap.conf:
+
 ```
 vi /opt/symas/etc/openldap/ldap.conf
 ```
- - Add these lines
+
+- Add these lines
+
 ```
 TLS_CACERT /etc/certs/openldap.pem
 TLS_REQCERT never
 ``` 
- - Modify the HOST_LIST entry of symas-openldap.conf:
+
+- Modify the HOST_LIST entry of symas-openldap.conf:
+
 ```
 vi /opt/symas/etc/openldap/symas-openldap.conf
 ```
- - Edit like so:
+
+- Edit like so:
+
 ```
 ...
 HOST_LIST="ldaps://0.0.0.0:1636/ ldaps:///"
 ...
 ```
+
 6. It is important that our servers times are synchronized so we must install ntp outside of the Gluu chroot and set ntp to update by the minute (necessary for delta-sync log synchronization). If time gets out of sync, the entries will conflict and their could be issues with replication.
+
 ```
 GLUU.root@host:/ # logout
 # apt install ntp
 # crontab -e
 ```
- - Select your preferred editor and add this to the bottom of the file:
+
+- Select your preferred editor and add this to the bottom of the file:
+
 ```
 * * * * * /usr/sbin/ntpdate -s time.nist.gov
 ```
- - This synchronizes the time every minute.
+ 
+- This synchronizes the time every minute.
+
 7. Force-reload solserver on every server
 ```
 # service gluu-server-3.0.2 login
 # service solserver force-reload
 ```
+
 8. Delta-sync multi-master replication should be initializing and running. Check the logs for confirmation. It might take a moment for them to sync, but you should end up see something like the following:
 
 ```
@@ -141,21 +188,27 @@ Aug 23 22:40:29 dc4 slapd[79544]: syncrepl_message_to_op: rid=001 be_modify
 
 9. Now let's configure your NGINX server for oxTrust and oxAuth web failover. 
 
- - We need the httpd.crt and httpd.key certs from one of the Gluu servers.
- - From the NGINX server:
+- We need the httpd.crt and httpd.key certs from one of the Gluu servers.   
+
+- From the NGINX server:  
+
 ```
 mkdir /etc/nginx/ssl/
 scp root@server1.com:/opt/gluu-server-3.0.2/etc/certs/httpd.key /etc/nginx/ssl/
 scp root@server1.com:/opt/gluu-server-3.0.2/etc/certs/httpd.crt /etc/nginx/ssl/
 ```
- - Next we install and configure NGINX to proxy-pass connections.
+
+- Next we install and configure NGINX to proxy-pass connections.  
+
 ```
 apt-get install nginx -y
 cd /etc/nginx/
 >nginx.conf
 vi nginx.conf
 ```
- - Put the following template in it's place. Make sure to change the `{serverX_ip_or_FQDN}` portion to your servers IP addresses or FQDN under the upstream section. Add as many servers as exist in your replication setup. The `server_name` needs to be your NGINX servers FQDN.
+
+- Put the following template in it's place. Make sure to change the `{serverX_ip_or_FQDN}` portion to your servers IP addresses or FQDN under the upstream section. Add as many servers as exist in your replication setup. The `server_name` needs to be your NGINX servers FQDN.    
+
 ```
 user www-data;
 worker_processes 4;
@@ -196,6 +249,8 @@ http {
 }
 
 ```
- - Now all traffic for the Gluu web GUI will route through one address i.e. nginx.gluu.info. This gives us fail-over redundancy for our Gluu web GUI if any server goes down, as NGINX automatically does passive health checks.
 
-# If you have any questions, please refer to the support.gluu.org support page for assistance.
+- Now all traffic for the Gluu web GUI will route through one address i.e. `nginx.gluu.info`. This gives us fail-over redundancy for our Gluu web GUI if any server goes down, as NGINX automatically does passive health checks.   
+
+## Support 
+If you have any questions or run into any issues, please open a ticket on [Gluu Support](https://support.gluu.org).
