@@ -35,7 +35,11 @@ def run_command(tid, c, command, container=None):
         wlogger.log(tid, cout, "debug")
         output = cout
     if cerr:
-        wlogger.log(tid, cerr, "error")
+        # For some reason slaptest decides to send success message as err, so
+        if 'config file testing succeeded' in cerr:
+            wlogger.log(tid, cerr, "success")
+        else:
+            wlogger.log(tid, cerr, "error")
         output += "\n" + cerr
     return output
 
@@ -71,7 +75,18 @@ def download_file(tid, c, remote, local):
 
 
 @celery.task(bind=True)
-def setup_provider(self, server_id, conffile):
+def setup_server(self, server_id, conffile):
+    """This Task sets up a standalone server with only OpenLDAP installed as
+    per the request.
+
+    As the task proceeds the various status are logged to the WebLogger under
+    the uniqueID of the task. This lets the web interface to poll for the
+    near-realtime updates.
+
+    Args:
+        server_id (int): the primary key of the LDAPServer object
+        conffile (string): complete path of the slapd.conf generated via webui
+    """
     server = LDAPServer.query.get(server_id)
     tid = self.request.id
 
@@ -158,15 +173,15 @@ def setup_provider(self, server_id, conffile):
     wlogger.log(tid, "Copying slapd.conf file to remote server")
     upload_file(tid, c, conffile, '/opt/symas/etc/openldap/slapd.conf')
 
-    wlogger.log(tid, "Checking status of LDAP server")
-    status = run_command(tid, c, 'service solserver status')
-
-    if 'is running' in status:
-        wlogger.log(tid, "Stopping LDAP Server")
-        run_command(tid, c, 'service solserver stop')
+    wlogger.log(tid, "Restarting LDAP server to validate slapd.conf")
+    # IMPORTANT:
+    # Restart allows the server to create missing mdb files for accesslog so
+    # slapd.conf -> slapd.d conversion runs without error
+    run_command(tid, c, 'service solserver restart')
 
     # 8. Generate OLC slapd.d
-    wlogger.log(tid, "Generating slapd.d Online Configuration")
+    wlogger.log(tid, "Migrating from slapd.conf to slapd.d OnlineConfig (OLC)")
+    run_command(tid, c, 'service solserver stop')
     run_command(tid, c, 'rm -rf /opt/symas/etc/openldap/slapd.d')
     run_command(tid, c, 'mkdir -p /opt/symas/etc/openldap/slapd.d')
     run_command(tid, c,
@@ -174,7 +189,8 @@ def setup_provider(self, server_id, conffile):
                 ' -F /opt/symas/etc/openldap/slapd.d')
 
     # 9. Restart the solserver with the new configuration
-    wlogger.log(tid, "Starting LDAP server")
+    wlogger.log(tid, "Starting LDAP server with OLC configuraion. Any future"
+                "changes to slapd.conf will have NO effect on the LDAP server")
     log = run_command(tid, c, 'service solserver start')
     if 'failed' in log:
         wlogger.log(tid, "OpenLDAP server failed to start.", "error")

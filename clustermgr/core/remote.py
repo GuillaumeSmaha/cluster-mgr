@@ -58,7 +58,7 @@ class RemoteClient(object):
         except IOError:
             return "Error: Remote location %s doesn't exist." % remote
         finally:
-            return "File transfer successful."
+            return "Download successful. File at: {0}".format(local)
 
     def upload(self, local, remote):
         """Uploads the file from local location to remote server.
@@ -78,7 +78,7 @@ class RemoteClient(object):
         except IOError:
             return "Error: Remote location %s doesn't exist." % remote
         finally:
-            return "File transfer successful."
+            return "Upload successful. File at: {0}".format(remote)
 
     def exists(self, filepath):
         """Returns whether a file exists or not in the remote server.

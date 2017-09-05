@@ -12,7 +12,8 @@ from clustermgr.extensions import db
 from clustermgr.models import AppConfiguration, LDAPServer
 from clustermgr.forms import NewConsumerForm, NewProviderForm, LDIFForm
 from clustermgr.core.utils import ldap_encode
-from clustermgr.tasks.all import setup_server, initialize_provider, replicate
+from clustermgr.tasks.all import initialize_provider, replicate
+from clustermgr.tasks.cluster import setup_server
 
 
 cluster = Blueprint('cluster', __name__, template_folder='templates')
