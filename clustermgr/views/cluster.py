@@ -13,7 +13,7 @@ from clustermgr.models import AppConfiguration, LDAPServer
 from clustermgr.forms import NewConsumerForm, NewProviderForm, LDIFForm
 from clustermgr.core.utils import ldap_encode
 from clustermgr.tasks.all import initialize_provider, replicate
-from clustermgr.tasks.cluster import setup_server
+from clustermgr.tasks.cluster import setup_server, configure_gluu_server
 
 
 cluster = Blueprint('cluster', __name__, template_folder='templates')
@@ -143,7 +143,10 @@ def setup_ldap_server(server_id, step):
         nextpage = 'dashboard'
         conffile = os.path.join(app.config['SLAPDCONF_DIR'],
                                 "{0}_slapd.conf".format(server_id))
-        task = setup_server.delay(server_id, conffile)
+        if s.gluu_server:
+            task = configure_gluu_server.delay(server_id, conffile)
+        else:
+            task = setup_server.delay(server_id, conffile)
         head = "Setting up server: "+s.hostname
         return render_template("logger.html", heading=head, server=s,
                                task=task, nextpage=nextpage)

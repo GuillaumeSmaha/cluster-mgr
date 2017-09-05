@@ -4,7 +4,7 @@ import os
 from flask import current_app as app
 
 from clustermgr.models import LDAPServer
-from clustermgr.extensions import celery, wlogger
+from clustermgr.extensions import celery, wlogger, db
 from clustermgr.core.remote import RemoteClient
 
 
@@ -197,6 +197,15 @@ def setup_server(self, server_id, conffile):
         wlogger.log(tid, "Debugging slapd...", "info")
         run_command(tid, "service solserver start -d 1")
 
+    # Everything is done. Set the flag to based on the messages
+    msgs = wlogger.get_messages(tid)
+    setup_success = True
+    for msg in msgs:
+        setup_success = setup_success and msg['level'] != 'error'
+    server.setup = setup_success
+    db.session.commit()
+
+
 
 @celery.task(bind=True)
 def configure_gluu_server(self, server_id, conffile):
@@ -235,7 +244,7 @@ def configure_gluu_server(self, server_id, conffile):
         if re.match('^directory', line):
             folder = line.split()[1]
             if not c.exists(os.path.join(chdir, folder)):
-                run_command(tid, 'mkdir -p '+folder, chdir)
+                run_command(tid, c, 'mkdir -p '+folder, chdir)
             else:
                 wlogger.log(tid, folder, 'success')
 
@@ -254,6 +263,12 @@ def configure_gluu_server(self, server_id, conffile):
     wlogger.log(tid, "Copying slapd.conf file to the server")
     upload_file(tid, c, conffile, chdir+"/opt/symas/etc/openaldap/slapd.conf")
 
+    wlogger.log(tid, "Restarting LDAP server to validate slapd.conf")
+    # IMPORTANT:
+    # Restart allows the server to create the mdb files for accesslog so
+    # slaptest doesn't throw errors during OLC generation
+    run_command(tid, c, 'service solserver restart', chdir)
+
     # 8. Download openldap.crt to be used in other servers for ldaps
     wlogger.log(tid, "Downloading SSL Certificate to be used in other servers")
     remote = chdir + '/etc/certs/openldap.crt'
@@ -261,27 +276,32 @@ def configure_gluu_server(self, server_id, conffile):
                          "{0}.crt".format(server.hostname))
     download_file(tid, c, remote, local)
 
-    wlogger.log(tid, "Checking the running status of LDAP server")
-    status = run_command(tid, c, 'service solserver status', chdir)
-
-    if 'is running' in status:
-        wlogger.log(tid, "Stopping the LDAP server")
-        run_command(tid, c, 'service solserver stop', chdir)
-
+    # 9. Generate OLC slapd.d
     wlogger.log(tid, "Convert slapd.conf to slapd.d OLC")
-    run_command(tid, c, "rm -f /opt/symas/etc/openldap/slapd.d", chdir)
+    run_command(tid, c, 'service solserver stop', chdir)
+    run_command(tid, c, "rm -rf /opt/symas/etc/openldap/slapd.d", chdir)
     run_command(tid, c, "mkdir /opt/symas/etc/openldap/slapd.d", chdir)
     run_command(tid, c, "/opt/symas/bin/slaptest -f /opt/symas/etc/openldap/"
                 "slapd.conf -F /opt/symas/etc/openldap/slapd.d", chdir)
 
+    # 10. Reset ownerships
     run_command(tid, c, "chown -R ldap:ldap /opt/gluu/data", chdir)
     run_command(tid, c, "chown -R ldap:ldap /opt/gluu/schema/openldap", chdir)
     run_command(tid, c, "chown -R ldap:ldap /opt/symas/etc/openldap/slapd.d",
                 chdir)
 
+    # 11. Restart the solserver with the new OLC configuration
     wlogger.log(tid, "Restarting LDAP server with OLC configuration")
     log = run_command(tid, c, "service solserver start", chdir)
     if 'failed' in log:
         wlogger.log(tid, "There seems to be some issue in starting the server."
                     "Running LDAP server in debug mode for troubleshooting")
         run_command(tid, c, "service solserver start -d 1", chdir)
+
+    # Everything is done. Set the flag to based on the messages
+    msgs = wlogger.get_messages(tid)
+    setup_success = True
+    for msg in msgs:
+        setup_success = setup_success and msg['level'] != 'error'
+    server.setup = setup_success
+    db.session.commit()
